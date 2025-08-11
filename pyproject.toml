@@ -1,0 +1,41 @@
+[project]
+name = "mergescribe"
+version = "0.1.0"
+description = "AI-powered transcription with multi-provider orchestration"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "soundfile==0.12.1",
+    "numpy>=2.2.5",
+    "scipy>=1.12.0",
+    "sounddevice==0.5.0",
+    "pynput==1.7.7",
+    "pyautogui==0.9.54",
+    "rumps>=0.4.0",
+    "flet>=0.24.0",
+    "pyobjc-framework-Quartz>=10.2",
+    "groq>=0.31.0",
+    "google-genai==1.10.0",
+    "parakeet-mlx",
+    "python-dotenv==1.0.1",
+]
+
+
+
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+no_implicit_optional = true
+
+
