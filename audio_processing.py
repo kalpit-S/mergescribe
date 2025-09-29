@@ -121,7 +121,6 @@ def preprocess_audio(audio_data):
         noise_min_sec = cfg.get_value("NOISE_REDUCTION_MIN_SECONDS") or 0
         debug_mode = bool(cfg.get_value("DEBUG_MODE"))
 
-        time.time()
         recording_length_sec = len(audio_data) / sr
         processed_audio = np.copy(audio_data)
 

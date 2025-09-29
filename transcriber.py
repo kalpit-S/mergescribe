@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 import pyautogui
+import requests
 import sounddevice as sd
 import soundfile as sf
 
@@ -27,6 +28,8 @@ class GlobalState:
         self.stream = None
         self.selected_text = None
         self.audio_hardware_busy = False
+        self.current_sample_rate = None
+        self.current_channels = None
 
 _state = GlobalState()
 
@@ -112,26 +115,68 @@ def start_recording():
     except Exception:
         selected_device = None
 
+    def _try_open_stream(device_index):
+        cfg = ConfigManager()
+        requested_sr = cfg.get_value("SAMPLE_RATE") or 16000
+        requested_ch = cfg.get_value("CHANNELS") or 1
+
+        # Probe device capabilities
+        default_sr = requested_sr
+        max_in_channels = requested_ch
+        try:
+            dev_info = sd.query_devices(device_index) if device_index is not None else sd.query_devices(kind='input')
+            if isinstance(dev_info.get('default_samplerate'), (int, float)):
+                default_sr = int(dev_info['default_samplerate'])
+            if isinstance(dev_info.get('max_input_channels'), int):
+                max_in_channels = dev_info['max_input_channels']
+        except Exception:
+            pass
+
+        channels_to_use = max(1, min(int(requested_ch), int(max_in_channels or 1)))
+        # Prioritize requested → device default → common rates
+        candidate_srs = []
+        for s in [requested_sr, default_sr, 48000, 44100, 32000, 24000, 16000]:
+            try:
+                s_int = int(s)
+                if s_int not in candidate_srs:
+                    candidate_srs.append(s_int)
+            except Exception:
+                continue
+
+        last_exc = None
+        for sr_candidate in candidate_srs:
+            try:
+                stream = sd.InputStream(
+                    samplerate=sr_candidate,
+                    channels=channels_to_use,
+                    callback=audio_callback,
+                    dtype="float32",
+                    device=device_index if device_index is not None else None
+                )
+                stream.start()
+                return stream, sr_candidate, channels_to_use
+            except Exception as e:
+                last_exc = e
+                continue
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Unknown error opening audio stream")
+
     for attempt in range(max_retries):
         try:
-            sr = ConfigManager().get_value("SAMPLE_RATE") or 16000
-            ch = ConfigManager().get_value("CHANNELS") or 1
-            state.stream = sd.InputStream(
-                samplerate=sr,
-                channels=ch,
-                callback=audio_callback,
-                dtype="float32",
-                device=selected_device if selected_device is not None else None
-            )
-            state.stream.start()
+            state.stream, used_sr, used_ch = _try_open_stream(selected_device)
+            state.current_sample_rate = int(used_sr) if used_sr else None
+            state.current_channels = int(used_ch) if used_ch else None
             if not is_debug():
                 print("🔴 Recording...")
             else:
                 print("Recording started...")
+                print(f"[DEBUG] Using sample rate {used_sr} Hz, channels={used_ch}")
             stream_created = True
             break
         except Exception as e:
             print(f"Audio stream creation attempt {attempt + 1} failed: {e}")
+            # If a specific device was chosen, fall back to system default next attempt
             if selected_device is not None:
                 selected_device = None
             if attempt < max_retries - 1:
@@ -139,11 +184,13 @@ def start_recording():
             else:
                 print("Failed to start recording after multiple attempts")
                 state.stream = None
-                state.audio_hardware_busy = False  # Reset on failure
+                state.audio_hardware_busy = False
+                state.recording_in_progress = False
                 raise
     
     if not stream_created:
         state.audio_hardware_busy = False
+        state.recording_in_progress = False
 
 def process_in_thread():
     state = get_global_state()
@@ -247,6 +294,11 @@ def _prepare_audio_data(state):
     
     from audio_processing import preprocess_audio
     preprocessing_start = time.time()
+    # Use actual sample rate if available to keep preprocessing parameters consistent
+    if hasattr(state, 'current_sample_rate') and state.current_sample_rate:
+        sr_for_processing = state.current_sample_rate
+    else:
+        sr_for_processing = ConfigManager().get_value("SAMPLE_RATE") or 16000
     audio_data = preprocess_audio(audio_data)
     preprocessing_time = time.time() - preprocessing_start
     
@@ -274,7 +326,8 @@ def _get_transcriptions(audio_data, state):
     
     print("🎤 Transcribing...")
     
-    sr = ConfigManager().get_value("SAMPLE_RATE") or 16000
+    # Prefer the sample rate actually used by the stream
+    sr = (state.current_sample_rate or (ConfigManager().get_value("SAMPLE_RATE") or 16000))
     audio_bytes = get_audio_as_bytes(audio_data, sample_rate=sr)
     transcriptions = []
     provider_timings = {}
@@ -336,6 +389,32 @@ def _handle_turbo_mode(future_to_provider, provider_start_times, timeout):
                 break
         except Exception as e:
             print(f"Provider error: {e}")
+    
+    # If first result was empty, wait for remaining providers before cancelling
+    if not transcriptions and not_done:
+        if is_debug():
+            print("[DEBUG] First result was empty, waiting for remaining providers...")
+        
+        additional_done, still_not_done = concurrent.futures.wait(
+            not_done,
+            timeout=timeout
+        )
+        
+        for future in additional_done:
+            try:
+                provider_name = future_to_provider[future]
+                provider_timings[provider_name] = time.time() - provider_start_times[provider_name]
+                
+                name, text = future.result()
+                if text:
+                    if is_debug():
+                        print(f"\n[Raw Transcription from {name}]\n{text}\n")
+                    transcriptions.append((name, text))
+                    break
+            except Exception as e:
+                print(f"Provider error: {e}")
+        
+        not_done = still_not_done
     
     for future in not_done:
         future.cancel()
@@ -616,12 +695,24 @@ def build_correction_prompt(transcriptions, context=None, app_context=None):
     
     return prompt
 
-def correct_with_openrouter(transcriptions, context, app_context=None):
-    cfg = ConfigManager()
-    import requests
-    import json
+def _call_openrouter_api(messages, model_key, temperature=0.5, max_tokens=1000, timeout=10):
+    """
+    Generic OpenRouter API caller.
     
-    prompt = build_correction_prompt(transcriptions, context, app_context)
+    Args:
+        messages: List of message dicts for the API
+        model_key: Config key for the model (e.g., "OPENROUTER_MODEL")
+        temperature: Sampling temperature
+        max_tokens: Maximum tokens in response
+        timeout: Request timeout in seconds
+        
+    Returns:
+        API response content
+        
+    Raises:
+        Exception on final failure after 3 attempts
+    """
+    cfg = ConfigManager()
     
     headers = {
         "Authorization": f"Bearer {cfg.get_value('OPENROUTER_API_KEY')}",
@@ -636,13 +727,10 @@ def correct_with_openrouter(transcriptions, context, app_context=None):
         headers["X-Title"] = site_name
     
     data = {
-        "model": cfg.get_value("OPENROUTER_MODEL") or "google/gemini-2.5-flash",
-        "messages": [
-            {"role": "system", "content": cfg.get_value("SYSTEM_CONTEXT") or ""},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.5,
-        "max_tokens": 1000
+        "model": cfg.get_value(model_key) or "google/gemini-2.5-flash",
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens
     }
     
     for attempt in range(3):
@@ -651,7 +739,7 @@ def correct_with_openrouter(transcriptions, context, app_context=None):
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=10
+                timeout=timeout
             )
             response.raise_for_status()
             result = response.json()
@@ -659,15 +747,27 @@ def correct_with_openrouter(transcriptions, context, app_context=None):
         except Exception as e:
             print(f"OpenRouter attempt {attempt + 1} failed: {e}")
             if attempt == 2:
-                return transcriptions[0][1] if transcriptions else ""
+                raise
             time.sleep(1)
+
+def correct_with_openrouter(transcriptions, context, app_context=None):
+    """Correct transcriptions using OpenRouter LLM with context."""
+    cfg = ConfigManager()
+    prompt = build_correction_prompt(transcriptions, context, app_context)
+    
+    messages = [
+        {"role": "system", "content": cfg.get_value("SYSTEM_CONTEXT") or ""},
+        {"role": "user", "content": prompt}
+    ]
+    
+    try:
+        return _call_openrouter_api(messages, "OPENROUTER_MODEL", timeout=10, max_tokens=1000)
+    except Exception:
+        return transcriptions[0][1] if transcriptions else ""
 
 def edit_text_with_openrouter(selected_text, voice_command):
     """Edit selected text using OpenRouter based on voice command."""
     cfg = ConfigManager()
-    import requests
-    import json
-    
     prompt = f"""TASK: {voice_command}
 
 ORIGINAL TEXT:
@@ -675,45 +775,16 @@ ORIGINAL TEXT:
 
 INSTRUCTIONS: Apply the task to the original text above. Return ONLY the edited text, nothing else. No explanations, no formatting, no extra content."""
     
-    headers = {
-        "Authorization": f"Bearer {cfg.get_value('OPENROUTER_API_KEY')}",
-        "Content-Type": "application/json"
-    }
+    messages = [
+        {"role": "system", "content": cfg.get_value("TEXT_EDITING_CONTEXT") or ""},
+        {"role": "user", "content": prompt}
+    ]
     
-    site_url = cfg.get_value("OPENROUTER_SITE_URL") or ""
-    site_name = cfg.get_value("OPENROUTER_SITE_NAME") or ""
-    if site_url:
-        headers["HTTP-Referer"] = site_url
-    if site_name:
-        headers["X-Title"] = site_name
-    
-    data = {
-        "model": cfg.get_value("TEXT_EDITING_MODEL") or "google/gemini-2.5-flash",
-        "messages": [
-            {"role": "system", "content": cfg.get_value("TEXT_EDITING_CONTEXT") or ""},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.5,
-        "max_tokens": 4000
-    }
-    
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=15
-            )
-            response.raise_for_status()
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-        except Exception as e:
-            print(f"Text editing attempt {attempt + 1} failed: {e}")
-            if attempt == 2:
-                print("❌ Text editing failed - returning original text")
-                return selected_text
-            time.sleep(1)
+    try:
+        return _call_openrouter_api(messages, "TEXT_EDITING_MODEL", timeout=15, max_tokens=4000)
+    except Exception:
+        print("❌ Text editing failed - returning original text")
+        return selected_text
 
 
 def get_application_context():

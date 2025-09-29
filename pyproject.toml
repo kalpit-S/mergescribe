@@ -18,9 +18,9 @@ dependencies = [
     "flet>=0.24.0",
     "pyobjc-framework-Quartz>=10.2",
     "groq>=0.31.0",
-    "google-genai==1.10.0",
     "parakeet-mlx",
     "python-dotenv==1.0.1",
+    "requests>=2.31.0",
 ]
 
 

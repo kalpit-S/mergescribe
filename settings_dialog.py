@@ -230,7 +230,6 @@ def settings_app(page: ft.Page) -> None:
             for idx, dev in enumerate(devices):
                 if dev.get('max_input_channels', 0) > 0:
                     name = dev.get('name', f'Device {idx}')
-                    dev.get('hostapi', None)
                     label = f"[{idx}] {name}"
                     input_devices.append((idx, label))
             mic_devices_dropdown.options = [ft.dropdown.Option(label) for _, label in input_devices]

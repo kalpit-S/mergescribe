@@ -14,17 +14,64 @@ import os
 from typing import Any, Dict
 
 
+# Singleton instance
+_config_instance = None
+
+
 class ConfigManager:
-    """Manages configuration settings for MergeScribe"""
+    """Manages configuration settings for MergeScribe (Singleton pattern with auto-reload)"""
+    
+    def __new__(cls, *args, **kwargs):
+        global _config_instance
+        if _config_instance is None:
+            _config_instance = super().__new__(cls)
+        return _config_instance
     
     def __init__(self, config_file_path: str = "config.py", env_file_path: str = ".env", settings_file_path: str = "settings.json"):
+        # Only initialize once
+        if hasattr(self, '_initialized'):
+            # Check if files have been modified and reload if needed
+            self._check_and_reload()
+            return
+        self._initialized = True
+        
         self.config_file_path = config_file_path
         self.env_file_path = env_file_path
         self.settings_file_path = settings_file_path
         self.config_values = {}
         self.env_values = {}
         self.settings_values = {}
+        self._file_mtimes = {}
         self.load_config()
+        self._update_mtimes()
+    
+    def _get_mtime(self, filepath: str) -> float:
+        """Get modification time of a file, or 0 if file doesn't exist."""
+        try:
+            return os.path.getmtime(filepath)
+        except (OSError, FileNotFoundError):
+            return 0.0
+    
+    def _update_mtimes(self):
+        """Update stored modification times for all config files."""
+        self._file_mtimes = {
+            'config': self._get_mtime(self.config_file_path),
+            'env': self._get_mtime(self.env_file_path),
+            'settings': self._get_mtime(self.settings_file_path),
+        }
+    
+    def _check_and_reload(self):
+        """Check if any config files have been modified and reload if needed."""
+        current_mtimes = {
+            'config': self._get_mtime(self.config_file_path),
+            'env': self._get_mtime(self.env_file_path),
+            'settings': self._get_mtime(self.settings_file_path),
+        }
+        
+        # Check if any files have been modified
+        if current_mtimes != self._file_mtimes:
+            self.load_config()
+            self._file_mtimes = current_mtimes
     
     def load_config(self):
         """Load configuration from settings.json, config.py and .env files."""
@@ -129,6 +176,8 @@ class ConfigManager:
         """Save configuration to files (settings.json and .env)."""
         self.save_settings_file()
         self.save_env_file()
+        # Update modification times after saving to prevent immediate reload
+        self._update_mtimes()
     
     def save_env_file(self):
         """Save environment variables to .env file"""

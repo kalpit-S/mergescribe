@@ -39,11 +39,18 @@ def detect_selected_text():
         except Exception as e:
             print(f"Error copying selected text: {e}")
             return None
+        
         new_clipboard = get_clipboard()
+        
+        # Determine selected text before restoring clipboard
+        selected = None
         if new_clipboard != original_clipboard and new_clipboard.strip():
-            return new_clipboard
-        else:
-            return None
+            selected = new_clipboard
+        
+        # Always restore original clipboard
+        set_clipboard(original_clipboard)
+        return selected
+        
     except Exception as e:
         print(f"Error in text selection: {e}")
         return None
