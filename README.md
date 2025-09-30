@@ -173,7 +173,11 @@ Look for the 🎤 icon in your menu bar.
 
 ## Usage
 
-**Transcription**: Hold Right Option (⌥), speak, release  
+### Transcription Modes
+**Press-and-hold**: Hold Right Option (⌥), speak, release  
+**Toggle mode**: Double-tap Right Option (⌥) → speak freely → tap once to stop and transcribe
+
+### Text Editing
 **Text Editing**: Select text → hold trigger → speak command → automatic replacement
 
 ## Project Structure

@@ -61,6 +61,8 @@ class TranscriberApp(rumps.App):
         self.shift_pressed = False
         self.ctrl_pressed = False
         self.trigger_key_pressed = False
+        self.last_trigger_press_time = 0
+        self.toggle_recording_mode = False  # True when in continuous recording mode
         
         def on_press(key):
             try:
@@ -115,11 +117,37 @@ class TranscriberApp(rumps.App):
     def _handle_trigger_press(self):
         """Handle trigger key press"""
         self.trigger_key_pressed = True
+        current_time = time.time()
         
-        # Block if already busy to prevent hardware conflicts
-        if not self.state.recording_in_progress and not self.state.audio_hardware_busy:
+        # Check for double-tap (within 300ms)
+        time_since_last_press = current_time - self.last_trigger_press_time
+        is_double_tap = time_since_last_press < 0.3 and time_since_last_press > 0.05  # 50ms minimum to avoid key repeat
+        
+        self.last_trigger_press_time = current_time
+        
+        # Handle double-tap to enter toggle mode
+        if is_double_tap and not self.state.recording_in_progress:
             if ConfigManager().get_value("DEBUG_MODE"):
-                print(f"[DEBUG] Starting recording... State: recording={self.state.recording_in_progress}")
+                print("[DEBUG] Double-tap detected - entering toggle recording mode")
+            print("🔴 Toggle recording mode activated")
+            self.toggle_recording_mode = True
+            self.state.recording_in_progress = True
+            transcriber.start_recording()
+            threading.Thread(target=transcriber.detect_and_store_selected_text, daemon=True).start()
+            return
+        
+        # If already in toggle mode and recording, single tap stops
+        if self.toggle_recording_mode and self.state.recording_in_progress:
+            if ConfigManager().get_value("DEBUG_MODE"):
+                print("[DEBUG] Single tap in toggle mode - stopping recording")
+            self.toggle_recording_mode = False
+            transcriber.stop_recording_and_process()
+            return
+        
+        # Normal press-and-hold behavior
+        if not self.state.recording_in_progress and not self.state.audio_hardware_busy and not self.toggle_recording_mode:
+            if ConfigManager().get_value("DEBUG_MODE"):
+                print(f"[DEBUG] Starting recording (press-and-hold)... State: recording={self.state.recording_in_progress}")
             
             self.state.recording_in_progress = True
             transcriber.start_recording()
@@ -134,6 +162,14 @@ class TranscriberApp(rumps.App):
     def _handle_trigger_release(self):
         """Handle trigger key release"""
         self.trigger_key_pressed = False
+        
+        # In toggle mode, ignore key release (recording continues until next tap)
+        if self.toggle_recording_mode:
+            if ConfigManager().get_value("DEBUG_MODE"):
+                print("[DEBUG] Key released but in toggle mode - continuing recording")
+            return
+        
+        # Normal press-and-hold: stop recording on release
         if self.state.recording_in_progress:
             if ConfigManager().get_value("DEBUG_MODE"):
                 print(f"[DEBUG] Stopping recording... State: recording={self.state.recording_in_progress}")
@@ -192,6 +228,7 @@ class TranscriberApp(rumps.App):
         self.state.audio_hardware_busy = False
         self.state.audio_buffer.clear()
         self.state.recording_start_time = None
+        self.toggle_recording_mode = False  # Reset toggle mode
     
     def _force_close_stream(self):
         """Aggressively close audio stream during emergency reset"""
@@ -233,9 +270,20 @@ class TranscriberApp(rumps.App):
                 if hasattr(self.state, 'recording_start_time'):
                     recording_duration = time.time() - self.state.recording_start_time
                     
-                    # ONLY stop if trigger key is no longer pressed (missed release event)
-                    # Allow unlimited recording time while key is held
-                    if not self.trigger_key_pressed and recording_duration > 1.0:  # Give 1 second grace period
+                    # Safety: Auto-stop toggle mode after 10 minutes
+                    if self.toggle_recording_mode and recording_duration > 600:  # 10 minutes = 600 seconds
+                        print(f"[INFO] Toggle mode recording exceeded 10 minutes - auto-stopping")
+                        self.toggle_recording_mode = False
+                        transcriber.stop_recording_and_process()
+                        try:
+                            rumps.notification("MergeScribe", "Recording Stopped", "Toggle mode recording exceeded 10 minutes")
+                        except Exception:
+                            pass
+                        return
+                    
+                    # ONLY stop if trigger key is no longer pressed AND not in toggle mode (missed release event)
+                    # Allow unlimited recording time while key is held or in toggle mode
+                    if not self.trigger_key_pressed and not self.toggle_recording_mode and recording_duration > 1.0:  # Give 1 second grace period
                         print(f"[WARNING] Recording active but trigger key not pressed - missed release event after {recording_duration:.1f}s")
                         print("[DEBUG] Force stopping recording due to missed key release")
                         transcriber.stop_recording_and_process()
