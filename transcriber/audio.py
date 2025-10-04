@@ -1,6 +1,6 @@
 import io
 import time
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import sounddevice as sd
@@ -36,19 +36,6 @@ def start_recording() -> None:
         if indata is not None and len(indata) > 0:
             state.audio_buffer.append(indata.copy())
 
-    if not hasattr(state, "mic_info_printed"):
-        try:
-            cfg = ConfigManager()
-            selected_device = cfg.get_value("MIC_DEVICE_INDEX")
-            if selected_device is not None:
-                dev_info = sd.query_devices(selected_device)
-            else:
-                dev_info = sd.query_devices(kind="input")
-            print(f"🎙️  Using microphone: {dev_info['name']}")
-            state.mic_info_printed = True
-        except Exception as exc:  # noqa: BLE001 - best effort logging
-            print(f"Could not detect microphone: {exc}")
-
     max_retries = 3
     stream_created = False
     cfg = ConfigManager()
@@ -64,10 +51,28 @@ def start_recording() -> None:
 
     for attempt in range(max_retries):
         try:
-            stream, used_sr, used_ch = _open_stream(selected_device, audio_callback)
+            (
+                stream,
+                used_sr,
+                used_ch,
+                used_device_index,
+                used_device_name,
+                used_fallback,
+            ) = _open_stream(selected_device, audio_callback)
             state.stream = stream
             state.current_sample_rate = int(used_sr) if used_sr else None
             state.current_channels = int(used_ch) if used_ch else None
+            state.current_device_index = used_device_index
+            if used_device_name:
+                previous_mic = state.last_mic_name
+                if used_fallback:
+                    print(
+                        "⚠️  Primary microphone unavailable; using "
+                        f"{used_device_name}"
+                    )
+                if used_fallback or used_device_name != previous_mic:
+                    print(f"🎙️  Using microphone: {used_device_name}")
+                state.last_mic_name = used_device_name
             if not is_debug():
                 print("🔴 Recording...")
             else:
@@ -165,43 +170,132 @@ def _open_stream(device_index, audio_callback):
     requested_sr = cfg.get_value("SAMPLE_RATE") or 16000
     requested_ch = cfg.get_value("CHANNELS") or 1
 
-    default_sr = requested_sr
-    max_in_channels = requested_ch
-    try:
-        dev_info = (
-            sd.query_devices(device_index) if device_index is not None else sd.query_devices(kind="input")
-        )
-        if isinstance(dev_info.get("default_samplerate"), (int, float)):
-            default_sr = int(dev_info["default_samplerate"])
-        if isinstance(dev_info.get("max_input_channels"), int):
-            max_in_channels = dev_info["max_input_channels"]
-    except Exception:  # noqa: BLE001 - fall back to defaults silently
-        pass
-
-    channels_to_use = max(1, min(int(requested_ch), int(max_in_channels or 1)))
-
-    candidate_srs = []
-    for sr_candidate in [requested_sr, default_sr, 48000, 44100, 32000, 24000, 16000]:
+    def _list_input_devices() -> list[int]:
         try:
-            sr_int = int(sr_candidate)
-            if sr_int not in candidate_srs:
-                candidate_srs.append(sr_int)
-        except Exception:  # noqa: BLE001 - skip invalid values
-            continue
+            devices = sd.query_devices()
+        except Exception:  # noqa: BLE001 - best effort enumeration
+            return []
+        if isinstance(devices, dict):
+            devices = [devices]
+        indices: list[int] = []
+        for idx, dev in enumerate(devices):
+            try:
+                if dev.get("max_input_channels", 0) > 0:
+                    indices.append(idx)
+            except Exception:  # noqa: BLE001 - skip malformed entries
+                continue
+        return indices
+
+    def _query_device(dev_idx):
+        try:
+            if dev_idx is None:
+                return sd.query_devices(kind="input")
+            return sd.query_devices(dev_idx)
+        except Exception:  # noqa: BLE001 - use empty info on failure
+            return {}
+
+    def _candidate_samplerates(dev_info):
+        candidates = []
+        for sr_candidate in [
+            requested_sr,
+            dev_info.get("default_samplerate"),
+            48000,
+            44100,
+            32000,
+            24000,
+            16000,
+        ]:
+            try:
+                sr_int = int(sr_candidate)
+            except Exception:  # noqa: BLE001 - skip invalid entries
+                continue
+            if sr_int > 0 and sr_int not in candidates:
+                candidates.append(sr_int)
+        return candidates
+
+    def _attempt_device(dev_idx):
+        dev_info = _query_device(dev_idx)
+        max_in_channels = dev_info.get("max_input_channels")
+        try:
+            max_in_channels = int(max_in_channels)
+        except Exception:  # noqa: BLE001 - fall back to requested channel count
+            max_in_channels = requested_ch
+        channels_to_use = max(1, min(int(requested_ch), int(max_in_channels or 1)))
+        candidate_srs = _candidate_samplerates(dev_info)
+        last_exc_local = None
+
+        for sr_candidate in candidate_srs:
+            stream_kwargs = {
+                "samplerate": sr_candidate,
+                "channels": channels_to_use,
+                "callback": audio_callback,
+                "dtype": "float32",
+            }
+            if dev_idx is not None:
+                stream_kwargs["device"] = dev_idx
+
+            try:
+                stream = sd.InputStream(**stream_kwargs)
+                try:
+                    stream.start()
+                except Exception as exc:  # noqa: BLE001 - ensure stream is closed before retry
+                    stream.close()
+                    last_exc_local = exc
+                    continue
+                return stream, sr_candidate, channels_to_use, dev_info
+            except Exception as exc:  # noqa: BLE001 - keep last error for diagnostics
+                last_exc_local = exc
+                continue
+
+        if last_exc_local:
+            raise last_exc_local
+        raise RuntimeError("Unknown error opening audio stream")
+
+    available_inputs = _list_input_devices()
+
+    candidate_devices: List[Optional[int]] = []
+
+    def _add_candidate(dev_idx):
+        if dev_idx in candidate_devices:
+            return
+        candidate_devices.append(dev_idx)
+
+    if device_index is not None and device_index in available_inputs:
+        _add_candidate(device_index)
+    else:
+        device_index = None
+
+    _add_candidate(None)
+
+    try:
+        default_input_idx = sd.default.device[0]
+        if isinstance(default_input_idx, str):
+            default_input_idx = int(default_input_idx)
+    except Exception:  # noqa: BLE001 - ignore default lookup failure
+        default_input_idx = None
+
+    if (
+        default_input_idx is not None
+        and isinstance(default_input_idx, int)
+        and default_input_idx in available_inputs
+    ):
+        _add_candidate(default_input_idx)
+
+    for idx in available_inputs:
+        _add_candidate(idx)
+
+    if not candidate_devices:
+        raise RuntimeError("No input devices available")
 
     last_exc = None
-    for sr_candidate in candidate_srs:
+
+    for attempt_index, candidate in enumerate(candidate_devices):
         try:
-            stream = sd.InputStream(
-                samplerate=sr_candidate,
-                channels=channels_to_use,
-                callback=audio_callback,
-                dtype="float32",
-                device=device_index if device_index is not None else None,
-            )
-            stream.start()
-            return stream, sr_candidate, channels_to_use
-        except Exception as exc:  # noqa: BLE001 - keep last failure for reporting
+            stream, used_sr, used_ch, info = _attempt_device(candidate)
+            device_name = info.get("name") if isinstance(info, dict) else None
+            was_fallback = attempt_index > 0
+            return stream, used_sr, used_ch, candidate, device_name, was_fallback
+        except Exception as exc:  # noqa: BLE001 - try next candidate
             last_exc = exc
             continue
 

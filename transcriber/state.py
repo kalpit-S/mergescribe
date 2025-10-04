@@ -20,6 +20,8 @@ class GlobalState:
         self.audio_hardware_busy = False
         self.current_sample_rate = None
         self.current_channels = None
+        self.current_device_index = None
+        self.last_mic_name = None
         self.recording_start_time = None
 
 
@@ -45,6 +47,8 @@ def reset_state() -> None:
         state.transcription_history = []
         state.current_sample_rate = None
         state.current_channels = None
+        state.current_device_index = None
+        state.last_mic_name = None
         state.recording_start_time = None
 
         if state.stream:
