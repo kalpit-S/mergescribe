@@ -1,6 +1,7 @@
+import json
 import subprocess
 import time
-from typing import Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 import requests
 
@@ -85,6 +86,121 @@ def _call_openrouter_api(messages, model_key, temperature=0.5, max_tokens=1000, 
             if attempt == 2:
                 raise
             time.sleep(1)
+
+
+def correct_with_openrouter_streaming(
+    transcriptions: Iterable[Transcription],
+    context: Optional[str],
+    app_context: Optional[str],
+    on_delta: Optional[Callable[[str], None]],
+    timeout: int = 15,
+) -> str:
+    """Stream corrected transcription from OpenRouter and send deltas to a callback.
+
+    This lets callers (like the CGEvent typer) apply text incrementally as the
+    model streams tokens, instead of replaying the full response after the fact.
+    """
+    cfg = ConfigManager()
+    prompt = build_correction_prompt(transcriptions, context, app_context)
+
+    messages = [
+        {"role": "system", "content": cfg.get_value("SYSTEM_CONTEXT") or ""},
+        {"role": "user", "content": prompt},
+    ]
+
+    headers = {
+        "Authorization": f"Bearer {cfg.get_value('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json",
+    }
+
+    site_url = cfg.get_value("OPENROUTER_SITE_URL") or ""
+    site_name = cfg.get_value("OPENROUTER_SITE_NAME") or ""
+    if site_url:
+        headers["HTTP-Referer"] = site_url
+    if site_name:
+        headers["X-Title"] = site_name
+
+    data = {
+        "model": cfg.get_value("OPENROUTER_MODEL") or "google/gemini-2.5-flash",
+        "messages": messages,
+        "temperature": 0.5,
+        "max_tokens": 1000,
+        "stream": True,
+    }
+
+    collected_chunks: List[str] = []
+
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=timeout,
+            stream=True,
+        )
+
+        # Pre-stream error handling
+        if response.status_code != 200:
+            try:
+                error_data = response.json()
+                error_message = error_data.get("error", {}).get("message", "")
+                print(f"OpenRouter streaming error (pre-stream): {error_message}")
+            except Exception:
+                print(f"OpenRouter streaming error (pre-stream): HTTP {response.status_code}")
+            raise RuntimeError("OpenRouter streaming failed before tokens were sent")
+
+        for line in response.iter_lines():
+            if not line:
+                continue
+
+            line_text = line.decode("utf-8").strip()
+
+            # Ignore SSE comments / heartbeats like ": OPENROUTER PROCESSING"
+            if not line_text or line_text.startswith(":"):
+                continue
+
+            if not line_text.startswith("data: "):
+                continue
+
+            payload = line_text[6:]
+            if payload == "[DONE]":
+                break
+
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                # Ignore malformed JSON lines
+                continue
+
+            # Mid-stream unified error event
+            if "error" in parsed:
+                error_message = parsed["error"].get("message", "Unknown streaming error")
+                print(f"OpenRouter streaming error (mid-stream): {error_message}")
+                # choices with finish_reason == "error" should also be present
+                break
+
+            try:
+                choice = parsed.get("choices", [{}])[0]
+                delta = choice.get("delta", {})
+                content = delta.get("content")
+            except Exception:
+                content = None
+
+            if content:
+                collected_chunks.append(content)
+                if on_delta is not None:
+                    on_delta(content)
+
+        return "".join(collected_chunks)
+
+    except Exception as exc:
+        print(f"OpenRouter streaming failed, falling back to non-streaming: {exc}")
+        # Fallback: use the existing non-streaming path, or raw provider output
+        try:
+            return correct_with_openrouter(transcriptions, context, app_context)
+        except Exception:
+            transcriptions = list(transcriptions)
+            return transcriptions[0][1] if transcriptions else ""
 
 
 def correct_with_openrouter(

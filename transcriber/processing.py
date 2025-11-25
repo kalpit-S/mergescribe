@@ -8,6 +8,7 @@ from text_editing import replace_selected_text
 from .audio import prepare_audio_data
 from .correction import (
     correct_with_openrouter,
+    correct_with_openrouter_streaming,
     edit_text_with_openrouter,
     get_application_context,
 )
@@ -129,29 +130,48 @@ def _handle_text_editing(transcriptions, selected_text: str) -> Tuple[str, float
 
 def _handle_normal_transcription(transcriptions, state):
     if state.turbo_mode:
+        # Turbo mode: skip OpenRouter entirely and just type the best raw provider output.
         best_transcription = transcriptions[0][1]
         openrouter_time = 0.0
         if is_debug():
             print(f"[DEBUG] Turbo mode: using raw result from {transcriptions[0][0]}")
-    else:
-        context = build_context_from_history(state.transcription_history)
-        app_context = get_application_context()
 
-        if is_debug() and app_context:
-            print(f"[DEBUG] Application context: {app_context}")
+        state.transcription_history.append((time.time(), best_transcription))
+        type_fast(best_transcription)
+        return best_transcription, openrouter_time, "Transcription"
 
-        openrouter_start = time.time()
-        best_transcription = correct_with_openrouter(transcriptions, context, app_context)
-        if not best_transcription or not best_transcription.strip():
-            if is_debug():
-                print(
-                    "[DEBUG] OpenRouter returned empty result; falling back to best raw provider output"
-                )
-            best_transcription = transcriptions[0][1]
-        openrouter_time = time.time() - openrouter_start
+    # Normal mode: stream correction from OpenRouter and type as tokens arrive.
+    context = build_context_from_history(state.transcription_history)
+    app_context = get_application_context()
 
+    if is_debug() and app_context:
+        print(f"[DEBUG] Application context: {app_context}")
+
+    openrouter_start = time.time()
+
+    # Streamed correction: this will call type_fast(delta) for each incoming
+    # chunk so the OS sees a natural, incremental typing pattern.
+    best_transcription = correct_with_openrouter_streaming(
+        transcriptions,
+        context,
+        app_context,
+        on_delta=type_fast,
+    )
+
+    # In case streaming returned an empty result (e.g., error + fallback),
+    # fall back to the best raw provider output for history/metrics.
+    if not best_transcription or not best_transcription.strip():
+        if is_debug():
+            print(
+                "[DEBUG] Streaming correction returned empty result; "
+                "falling back to best raw provider output"
+            )
+        best_transcription = transcriptions[0][1]
+
+    openrouter_time = time.time() - openrouter_start
+
+    # We have already typed via streaming; just record the result in history.
     state.transcription_history.append((time.time(), best_transcription))
-    type_fast(best_transcription)
 
     return best_transcription, openrouter_time, "Transcription"
 
