@@ -1,4 +1,5 @@
 import threading
+import gc
 from io import BytesIO
 
 import mlx.core as mx
@@ -51,6 +52,14 @@ def transcribe_sync(audio_bytes, language=None, prompt=None, temperature=0.0):
             alignments = model.generate(mel)
             
             transcribed_text = "".join([seg.text for seg in alignments])
+            
+            # Clean up memory to prevent accumulation
+            del audio_mx
+            del mel
+            del alignments
+            
+            if hasattr(mx, "metal"):
+                mx.metal.clear_cache()
             
             return ("Parakeet MLX", transcribed_text)
     except Exception as e:
