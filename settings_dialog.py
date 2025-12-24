@@ -89,6 +89,7 @@ def settings_app(page: ft.Page) -> None:
     provider_parakeet = ft.Checkbox(label="parakeet_mlx")
     provider_groq = ft.Checkbox(label="groq_whisper")
     provider_gemini = ft.Checkbox(label="gemini (via OpenRouter)")
+    auto_copy_result = ft.Checkbox(label="Auto-copy final result to clipboard")
 
     mic_devices_dropdown = ft.Dropdown(label="Microphone", width=500, options=[])
     mic_refresh_btn = ft.TextButton(text="Refresh devices")
@@ -106,6 +107,12 @@ def settings_app(page: ft.Page) -> None:
                 [ft.Row([provider_parakeet, provider_groq, provider_gemini])],
                 description="Select which engines to run in parallel.",
                 icon=ft.Icons.TUNGSTEN_OUTLINED,
+            ),
+            section(
+                "Text Insertion",
+                [auto_copy_result],
+                description="If an app blocks synthetic typing (Warp/Cursor can sometimes do this after updates), you'll still be able to paste instantly.",
+                icon=ft.Icons.CONTENT_PASTE_OUTLINED,
             ),
             section(
                 "Audio Input",
@@ -222,6 +229,7 @@ def settings_app(page: ft.Page) -> None:
         provider_parakeet.value = "parakeet_mlx" in enabled
         provider_groq.value = "groq_whisper" in enabled
         provider_gemini.value = "gemini" in enabled
+        auto_copy_result.value = bool(config.get_value("AUTO_COPY_RESULT_TO_CLIPBOARD"))
 
         try:
             import sounddevice as sd
@@ -278,6 +286,7 @@ def settings_app(page: ft.Page) -> None:
             if provider_gemini.value:
                 enabled.append("gemini")
             config.set_value("ENABLED_PROVIDERS", enabled)
+            config.set_value("AUTO_COPY_RESULT_TO_CLIPBOARD", bool(auto_copy_result.value))
 
             sel_label = mic_devices_dropdown.value or ""
             sel_index = None

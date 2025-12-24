@@ -126,13 +126,18 @@ class ConfigManager:
         """Load values from .env file"""
         if not os.path.exists(self.env_file_path):
             return
-        
-        with open(self.env_file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    self.env_values[key.strip()] = value.strip().strip('"\'')
+
+        # In some environments (CI sandboxes, restricted permissions), reading a
+        # user-local `.env` may be blocked. Treat it as optional and continue.
+        try:
+            with open(self.env_file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        self.env_values[key.strip()] = value.strip().strip('"\'')
+        except (OSError, PermissionError):
+            return
 
     def load_settings_file(self):
         """Load values from settings.json file (non-secret settings)."""
@@ -240,6 +245,12 @@ class ConfigManager:
             'ENABLE_APPLICATION_CONTEXT': True,
             'APPLICATION_CONTEXT_TIMEOUT': 2,
             'DEBUG_MODE': False,
+            # Convenience: always copy the final transcription to clipboard so users can paste
+            # if the target app blocks synthetic key events.
+            'AUTO_COPY_RESULT_TO_CLIPBOARD': False,
+            # OpenRouter routing: forcing a provider can break models that aren't available on it.
+            # Default to OpenRouter's normal routing behavior.
+            'OPENROUTER_FORCE_CEREBRAS_ONLY': False,
             'GEMINI_PROMPT': 'Transcribe this speech with maximum clarity and technical accuracy.',
             'OPENROUTER_SITE_NAME': 'MergeScribe',
             'OPENROUTER_SITE_URL': '',
@@ -319,7 +330,9 @@ Follow the voice command exactly and return only the edited text. Do not add exp
 
         known_bool = {
             'ENABLE_AUDIO_NORMALIZATION', 'ENABLE_SILENCE_TRIMMING', 'ENABLE_NOISE_REDUCTION',
-            'ENABLE_CONTEXT', 'ENABLE_APPLICATION_CONTEXT', 'DEBUG_MODE'
+            'ENABLE_CONTEXT', 'ENABLE_APPLICATION_CONTEXT', 'DEBUG_MODE',
+            'AUTO_COPY_RESULT_TO_CLIPBOARD',
+            'OPENROUTER_FORCE_CEREBRAS_ONLY',
         }
         known_int = {
             'SAMPLE_RATE', 'CHANNELS', 'NOISE_REDUCTION_MIN_SECONDS',

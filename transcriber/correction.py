@@ -11,6 +11,13 @@ from .state import is_debug
 
 Transcription = Tuple[str, str]
 
+def _apply_cerebras_provider_only(data: dict) -> None:
+    """Force OpenRouter routing to Cerebras only (no fallbacks).
+
+    Docs: https://openrouter.ai/docs/guides/routing/provider-selection
+    """
+    data["provider"] = {"only": ["cerebras"], "allow_fallbacks": False}
+
 
 def build_correction_prompt(
     transcriptions: Iterable[Transcription],
@@ -69,6 +76,8 @@ def _call_openrouter_api(messages, model_key, temperature=0.5, max_tokens=1000, 
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
+    if model_key == "OPENROUTER_MODEL" and bool(cfg.get_value("OPENROUTER_FORCE_CEREBRAS_ONLY")):
+        _apply_cerebras_provider_only(data)
 
     for attempt in range(3):
         try:
@@ -127,6 +136,8 @@ def correct_with_openrouter_streaming(
         "max_tokens": 1000,
         "stream": True,
     }
+    if bool(cfg.get_value("OPENROUTER_FORCE_CEREBRAS_ONLY")):
+        _apply_cerebras_provider_only(data)
 
     collected_chunks: List[str] = []
 

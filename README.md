@@ -171,6 +171,10 @@ Look for the 🎤 icon in your menu bar.
 - **Accessibility**: System Settings → Privacy & Security → Accessibility (for typing via CGEvent and clipboard access)
 - **Input Monitoring**: System Settings → Privacy & Security → Input Monitoring
 
+### If typing suddenly stops working (common after macOS/Warp updates)
+- Re-check **Accessibility** + **Input Monitoring** for the app that launches MergeScribe (Terminal, Warp, Cursor, etc.) and for your Python runtime if it appears separately.
+- Some apps temporarily enable **Secure Input / secure text entry** (password prompts, key managers, etc.), which can block synthetic key events. If MergeScribe is still transcribing but nothing is inserted, use the **Auto-copy final result to clipboard** setting and paste.
+
 ## Usage
 
 ### Transcription Modes

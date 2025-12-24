@@ -2,7 +2,8 @@ import threading
 import time
 from typing import Tuple
 
-from fast_text_input import type_fast
+from fast_text_input import copy_result_to_clipboard, type_fast
+from config_manager import ConfigManager
 from text_editing import replace_selected_text
 
 from .audio import prepare_audio_data
@@ -138,6 +139,9 @@ def _handle_normal_transcription(transcriptions, state):
 
         state.transcription_history.append((time.time(), best_transcription))
         type_fast(best_transcription)
+        if bool(ConfigManager().get_value("AUTO_COPY_RESULT_TO_CLIPBOARD")):
+            # Convenience: let users paste instantly if an app blocks synthetic typing.
+            copy_result_to_clipboard(best_transcription)
         return best_transcription, openrouter_time, "Transcription"
 
     # Normal mode: stream correction from OpenRouter and type as tokens arrive.
@@ -172,6 +176,9 @@ def _handle_normal_transcription(transcriptions, state):
 
     # We have already typed via streaming; just record the result in history.
     state.transcription_history.append((time.time(), best_transcription))
+    if bool(ConfigManager().get_value("AUTO_COPY_RESULT_TO_CLIPBOARD")):
+        # Convenience: let users paste instantly if an app blocks synthetic typing.
+        copy_result_to_clipboard(best_transcription)
 
     return best_transcription, openrouter_time, "Transcription"
 
