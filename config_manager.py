@@ -233,8 +233,8 @@ class ConfigManager:
             'TEXT_EDITING_MODEL': 'google/gemini-2.5-flash',
             'SAMPLE_RATE': 16000,
             'CHANNELS': 1,
-            'MIC_DEVICE_NAME': '',
-            'MIC_DEVICE_INDEX': None,
+            'MIC_DEVICE_NAME': '',  # Clean device name (e.g., "HyperX SoloCast") - matched by name, not index
+            'MIC_DEVICE_INDEX': None,  # Cached index - auto-updated if device moves
             'ENABLE_AUDIO_NORMALIZATION': True,
             'ENABLE_SILENCE_TRIMMING': True,
             'ENABLE_NOISE_REDUCTION': True,

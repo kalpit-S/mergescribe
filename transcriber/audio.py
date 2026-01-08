@@ -8,6 +8,7 @@ import soundfile as sf
 
 from audio_processing import preprocess_audio
 from config_manager import ConfigManager
+from mic_manager import get_preferred_device
 
 from .state import get_global_state, is_debug
 
@@ -38,16 +39,17 @@ def start_recording() -> None:
 
     max_retries = 3
     stream_created = False
-    cfg = ConfigManager()
-    selected_device = cfg.get_value("MIC_DEVICE_INDEX")
 
-    # Validate configured device is available before attempting to use it
-    if selected_device is not None:
-        if not _is_device_available(selected_device):
-            if is_debug():
-                print(f"[DEBUG] Configured device {selected_device} not available, falling back to default")
-            print(f"⚠️  Configured microphone (device {selected_device}) not found, using system default")
-            selected_device = None
+    # Use smart device lookup - finds device by NAME even if index changed
+    selected_device, found_device_name, was_found = get_preferred_device()
+    
+    if is_debug():
+        if was_found:
+            print(f"[DEBUG] Found preferred device '{found_device_name}' at index {selected_device}")
+        elif selected_device is None:
+            print("[DEBUG] Using system default microphone")
+        else:
+            print(f"[DEBUG] Using device index {selected_device}")
 
     for attempt in range(max_retries):
         try:

@@ -4,6 +4,14 @@ from typing import Any
 import flet as ft
 
 from config_manager import ConfigManager
+from mic_manager import (
+    list_input_devices,
+    find_device_by_name,
+    get_device_display_label,
+    save_preferred_device,
+    check_preferred_device_status,
+    MicDevice,
+)
 
 
 def settings_app(page: ft.Page) -> None:
@@ -92,6 +100,7 @@ def settings_app(page: ft.Page) -> None:
     auto_copy_result = ft.Checkbox(label="Auto-copy final result to clipboard")
 
     mic_devices_dropdown = ft.Dropdown(label="Microphone", width=500, options=[])
+    mic_status_text = ft.Text("", size=12, color=MUTED)
     mic_refresh_btn = ft.TextButton(text="Refresh devices")
 
     general_tab = ft.Column(
@@ -116,8 +125,11 @@ def settings_app(page: ft.Page) -> None:
             ),
             section(
                 "Audio Input",
-                [ft.Row([mic_devices_dropdown, mic_refresh_btn])],
-                description="Choose your recording device.",
+                [
+                    ft.Row([mic_devices_dropdown, mic_refresh_btn]),
+                    mic_status_text,
+                ],
+                description="Choose your recording device. Your mic will be found by name even if the device index changes.",
                 icon=ft.Icons.MIC_NONE_OUTLINED,
             ),
         ],
@@ -231,30 +243,38 @@ def settings_app(page: ft.Page) -> None:
         provider_gemini.value = "gemini" in enabled
         auto_copy_result.value = bool(config.get_value("AUTO_COPY_RESULT_TO_CLIPBOARD"))
 
+        # Load microphone devices using smart mic manager
         try:
-            import sounddevice as sd
-            devices = sd.query_devices()
-            input_devices = []
-            for idx, dev in enumerate(devices):
-                if dev.get('max_input_channels', 0) > 0:
-                    name = dev.get('name', f'Device {idx}')
-                    label = f"[{idx}] {name}"
-                    input_devices.append((idx, label))
-            mic_devices_dropdown.options = [ft.dropdown.Option(label) for _, label in input_devices]
+            devices = list_input_devices()
+            # Add "System Default" option at the top
+            mic_devices_dropdown.options = [
+                ft.dropdown.Option(key="__default__", text="System Default")
+            ] + [
+                ft.dropdown.Option(key=dev.name, text=get_device_display_label(dev))
+                for dev in devices
+            ]
+            
+            # Find and select the configured device
             configured_name = config.get_value("MIC_DEVICE_NAME") or ""
-            configured_index = config.get_value("MIC_DEVICE_INDEX")
-            if configured_index is not None:
-                for idx, label in input_devices:
-                    if idx == configured_index:
-                        mic_devices_dropdown.value = label
-                        break
-            elif configured_name:
-                for idx, label in input_devices:
-                    if configured_name in label:
-                        mic_devices_dropdown.value = label
-                        break
+            if configured_name:
+                # Try to find device by name
+                found_device = find_device_by_name(configured_name, devices)
+                if found_device:
+                    mic_devices_dropdown.value = found_device.name
+                else:
+                    # Device not currently available - still show the saved name
+                    mic_devices_dropdown.value = "__default__"
+            else:
+                mic_devices_dropdown.value = "__default__"
+            
+            # Update status
+            status_msg, is_available = check_preferred_device_status()
+            mic_status_text.value = status_msg
+            mic_status_text.color = "#4ADE80" if is_available else "#F87171"
         except Exception as _e:
-            mic_devices_dropdown.options = []
+            mic_devices_dropdown.options = [ft.dropdown.Option(key="__default__", text="System Default")]
+            mic_status_text.value = f"Error listing devices: {_e}"
+            mic_status_text.color = "#F87171"
 
         whisper_model.value = config.get_value("WHISPER_MODEL") or "whisper-large-v3"
         whisper_language.value = config.get_value("WHISPER_LANGUAGE") or ""
@@ -288,15 +308,15 @@ def settings_app(page: ft.Page) -> None:
             config.set_value("ENABLED_PROVIDERS", enabled)
             config.set_value("AUTO_COPY_RESULT_TO_CLIPBOARD", bool(auto_copy_result.value))
 
-            sel_label = mic_devices_dropdown.value or ""
-            sel_index = None
-            if sel_label.startswith("[") and "]" in sel_label:
-                try:
-                    sel_index = int(sel_label.split("]", 1)[0][1:])
-                except Exception:
-                    sel_index = None
-            config.set_value("MIC_DEVICE_INDEX", sel_index)
-            config.set_value("MIC_DEVICE_NAME", sel_label)
+            # Save microphone using smart mic manager
+            selected_name = mic_devices_dropdown.value or "__default__"
+            if selected_name == "__default__":
+                save_preferred_device(None)  # Clear preference - use system default
+            else:
+                # Find the device by name and save it
+                devices = list_input_devices()
+                found_device = find_device_by_name(selected_name, devices)
+                save_preferred_device(found_device)
 
             config.set_value("WHISPER_MODEL", whisper_model.value)
             config.set_value("WHISPER_LANGUAGE", whisper_language.value)
@@ -335,15 +355,22 @@ def settings_app(page: ft.Page) -> None:
 
     def refresh_devices(_=None):
         try:
-            import sounddevice as sd
-            devices = sd.query_devices()
-            input_devices = []
-            for idx, dev in enumerate(devices):
-                if dev.get('max_input_channels', 0) > 0:
-                    name = dev.get('name', f'Device {idx}')
-                    label = f"[{idx}] {name}"
-                    input_devices.append((idx, label))
-            mic_devices_dropdown.options = [ft.dropdown.Option(label) for _, label in input_devices]
+            devices = list_input_devices()
+            # Add "System Default" option at the top
+            mic_devices_dropdown.options = [
+                ft.dropdown.Option(key="__default__", text="System Default")
+            ] + [
+                ft.dropdown.Option(key=dev.name, text=get_device_display_label(dev))
+                for dev in devices
+            ]
+            
+            # Update status
+            status_msg, is_available = check_preferred_device_status()
+            mic_status_text.value = status_msg
+            mic_status_text.color = "#4ADE80" if is_available else "#F87171"
+            
+            page.snack_bar = ft.SnackBar(ft.Text(f"Found {len(devices)} input device(s)"))
+            page.snack_bar.open = True
             page.update()
         except Exception as ex:
             page.snack_bar = ft.SnackBar(ft.Text(f"Error listing devices: {ex}"))
