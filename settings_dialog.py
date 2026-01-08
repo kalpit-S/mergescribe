@@ -9,7 +9,6 @@ from mic_manager import (
     find_device_by_name,
     get_device_display_label,
     save_preferred_device,
-    check_preferred_device_status,
     MicDevice,
 )
 
@@ -18,62 +17,112 @@ def settings_app(page: ft.Page) -> None:
     page.title = "MergeScribe Settings"
     page.window_width = 900
     page.window_height = 700
-    page.padding = 12
-    page.bgcolor = "#0F1115"
+    page.padding = 16
+    page.bgcolor = "#0F1115"  # Deep dark background
     page.theme_mode = ft.ThemeMode.DARK
-    page.theme = ft.Theme(color_scheme_seed="#7AA2F7")
+
+    # Modern color palette
+    ACCENT = "#3B82F6"        # Bright Blue
+    BG_DARK = "#0F1115"
+    BG_CARD = "#181B21"       # Slightly lighter for cards
+    BORDER = "#272A32"
+    TEXT_MAIN = "#F3F4F6"
+    TEXT_MUTED = "#9CA3AF"
+    SUCCESS = "#10B981"
+    ERROR = "#EF4444"
+
+    page.theme = ft.Theme(
+        color_scheme_seed=ACCENT,
+        font_family="Inter, system-ui, sans-serif",
+    )
 
     config = ConfigManager()
 
+    def show_snack(message: str, color: str = ACCENT) -> None:
+        page.snack_bar = ft.SnackBar(ft.Text(message), bgcolor=color)
+        page.snack_bar.open = True
+        page.update()
 
-    ACCENT = "#7AA2F7"
-    CARD_BG = "#14171C"
-    STROKE = "#22262E"
-    MUTED = "#9BA3AF"
-
-    GRADIENT_HEADER = ft.LinearGradient(
-        begin=ft.alignment.top_left,
-        end=ft.alignment.bottom_right,
-        colors=["#0EA5EA", "#7AA2F7", "#A855F7"],
-        stops=[0.0, 0.6, 1.0],
-    )
-
-    def section(title: str, controls: list[ft.Control], description: str | None = None, icon: Any | None = None) -> ft.Container:
-        header_items: list[ft.Control] = []
+    def section_header(title: str, icon: Any | None = None) -> ft.Control:
+        items: list[ft.Control] = []
         if icon:
-            header_items.append(ft.Icon(icon, size=18, color=ACCENT))
-        header_items.append(ft.Text(title, size=15, weight=ft.FontWeight.W_600))
-        header = ft.Row(header_items, spacing=8)
-        body_children: list[ft.Control] = [header]
+            items.append(ft.Icon(icon, size=16, color=ACCENT))
+        items.append(ft.Text(title, size=14, weight=ft.FontWeight.W_600, color=TEXT_MAIN))
+        return ft.Row(items, spacing=8, alignment=ft.MainAxisAlignment.START)
+
+    def section(
+        title: str,
+        controls: list[ft.Control],
+        description: str | None = None,
+        icon: Any | None = None,
+    ) -> ft.Container:
+        header = section_header(title, icon)
+
+        content_col = ft.Column([header], spacing=4)
+
         if description:
-            body_children.append(ft.Text(description, size=12, color=MUTED))
-        body_children.extend(controls)
+            content_col.controls.append(
+                ft.Text(description, size=12, color=TEXT_MUTED)
+            )
+            content_col.controls.append(ft.Container(height=4))  # Spacer
+        else:
+            content_col.controls.append(ft.Container(height=2))
+
+        content_col.controls.extend(controls)
+
         return ft.Container(
-            content=ft.Column(body_children, spacing=10),
-            bgcolor=CARD_BG,
-            border=ft.border.all(1, STROKE),
-            border_radius=12,
-            padding=16,
+            content=content_col,
+            bgcolor=BG_CARD,
+            border=ft.border.all(1, BORDER),
+            border_radius=10,
+            padding=14,
         )
-    groq_key = ft.TextField(label="GROQ API Key", password=True, can_reveal_password=True, width=600)
-    openrouter_key = ft.TextField(label="OpenRouter API Key", password=True, can_reveal_password=True, width=600)
+
+    # --- API Keys Tab ---
+    groq_key = ft.TextField(
+        label="GROQ API Key",
+        password=True,
+        can_reveal_password=True,
+        width=600,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    openrouter_key = ft.TextField(
+        label="OpenRouter API Key",
+        password=True,
+        can_reveal_password=True,
+        width=600,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
 
     api_tab = ft.Column(
         [
             section(
-                "API Keys",
+                "API Configuration",
                 [
                     groq_key,
                     openrouter_key,
-                    ft.Text("Gemini runs via OpenRouter — no separate Gemini key needed.", color=MUTED, size=12),
+                    ft.Container(height=4),
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=TEXT_MUTED),
+                            ft.Text("Gemini runs via OpenRouter — no separate Gemini key needed.", color=TEXT_MUTED, size=12),
+                        ],
+                        spacing=6
+                    ),
                 ],
                 icon=ft.Icons.VPN_KEY_OUTLINED,
+                description="Manage your API keys for transcription and LLM services.",
             ),
         ],
-        spacing=16,
+        spacing=12,
         scroll=ft.ScrollMode.AUTO,
     )
 
+    # --- General Tab ---
     KEY_LABELS = {
         "alt_r": "Option (Right)",
         "alt_l": "Option (Left)",
@@ -93,138 +142,290 @@ def settings_app(page: ft.Page) -> None:
         options=[ft.dropdown.Option(key=k, text=v) for k, v in KEY_LABELS.items()],
         width=300,
         on_change=on_change_trigger_key,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
     )
-    provider_parakeet = ft.Checkbox(label="parakeet_mlx")
-    provider_groq = ft.Checkbox(label="groq_whisper")
-    provider_gemini = ft.Checkbox(label="gemini (via OpenRouter)")
-    auto_copy_result = ft.Checkbox(label="Auto-copy final result to clipboard")
 
-    mic_devices_dropdown = ft.Dropdown(label="Microphone", width=500, options=[])
-    mic_status_text = ft.Text("", size=12, color=MUTED)
-    mic_refresh_btn = ft.TextButton(text="Refresh devices")
+    provider_parakeet = ft.Checkbox(label="parakeet_mlx", active_color=ACCENT)
+    provider_groq = ft.Checkbox(label="groq_whisper", active_color=ACCENT)
+    provider_gemini = ft.Checkbox(label="gemini (via OpenRouter)", active_color=ACCENT)
+
+    auto_copy_result = ft.Checkbox(
+        label="Auto-copy final result to clipboard",
+        active_color=ACCENT,
+        tooltip="Helpful if target app blocks synthetic typing",
+    )
 
     general_tab = ft.Column(
         [
             section(
                 "Trigger",
                 [trigger_key],
-                description="Hold this key to record; release to transcribe.",
+                description="Hold this key to record; release to transcribe. Double-tap to toggle recording.",
                 icon=ft.Icons.KEYBOARD_OPTION_KEY,
             ),
             section(
                 "Enabled Providers",
-                [ft.Row([provider_parakeet, provider_groq, provider_gemini])],
-                description="Select which engines to run in parallel.",
+                [ft.Column([provider_parakeet, provider_groq, provider_gemini], spacing=4)],
+                description="Select which transcription engines to run in parallel. Results are merged for accuracy.",
                 icon=ft.Icons.TUNGSTEN_OUTLINED,
             ),
             section(
-                "Text Insertion",
+                "Workflow",
                 [auto_copy_result],
-                description="If an app blocks synthetic typing (Warp/Cursor can sometimes do this after updates), you'll still be able to paste instantly.",
-                icon=ft.Icons.CONTENT_PASTE_OUTLINED,
-            ),
-            section(
-                "Audio Input",
-                [
-                    ft.Row([mic_devices_dropdown, mic_refresh_btn]),
-                    mic_status_text,
-                ],
-                description="Choose your recording device. Your mic will be found by name even if the device index changes.",
-                icon=ft.Icons.MIC_NONE_OUTLINED,
+                description="Configure how results are delivered to your system.",
+                icon=ft.Icons.SETTINGS_SUGGEST_OUTLINED,
             ),
         ],
-        spacing=16,
+        spacing=12,
         scroll=ft.ScrollMode.AUTO,
     )
 
+    # --- Audio Tab ---
+    mic_status_icon = ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=14, color=SUCCESS)
+    mic_status_text = ft.Text("", size=12, color=TEXT_MUTED)
+    mic_status_container = ft.Container(
+        content=ft.Row([mic_status_icon, mic_status_text], spacing=6),
+        bgcolor="#0F3928",
+        border=ft.border.all(1, "#10B98133"),
+        border_radius=8,
+        padding=10,
+    )
+
+    devices_cache: list[MicDevice] = []
+
+    def update_mic_status(selected_name: str) -> None:
+        """Update status display based on currently selected device."""
+        if selected_name == "__default__" or not selected_name:
+            mic_status_text.value = "Using system default microphone"
+            mic_status_text.color = SUCCESS
+            mic_status_icon.name = ft.Icons.CHECK_CIRCLE_OUTLINE
+            mic_status_icon.color = SUCCESS
+            mic_status_container.bgcolor = "#0F3928"
+            mic_status_container.border = ft.border.all(1, "#10B98133")
+        else:
+            found = find_device_by_name(selected_name, devices_cache) if devices_cache else None
+            if found:
+                mic_status_text.value = f"✓ '{found.name}' ready"
+                mic_status_text.color = SUCCESS
+                mic_status_icon.name = ft.Icons.CHECK_CIRCLE_OUTLINE
+                mic_status_icon.color = SUCCESS
+                mic_status_container.bgcolor = "#0F3928"
+                mic_status_container.border = ft.border.all(1, "#10B98133")
+            else:
+                mic_status_text.value = f"✗ '{selected_name}' not found"
+                mic_status_text.color = ERROR
+                mic_status_icon.name = ft.Icons.ERROR_OUTLINE
+                mic_status_icon.color = ERROR
+                mic_status_container.bgcolor = "#3F1515"
+                mic_status_container.border = ft.border.all(1, "#EF444433")
+        mic_status_text.update()
+        mic_status_icon.update()
+        mic_status_container.update()
+
+    def on_mic_change(e):
+        update_mic_status(e.control.value)
+
+    mic_devices_dropdown = ft.Dropdown(
+        label="Microphone Device",
+        width=500,
+        options=[],
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+        on_change=on_mic_change,
+    )
+    mic_refresh_btn = ft.IconButton(
+        icon=ft.Icons.REFRESH,
+        tooltip="Refresh devices",
+        icon_color=ACCENT,
+    )
+
+    audio_tab = ft.Column(
+        [
+            section(
+                "Input Device",
+                [
+                    ft.Row([mic_devices_dropdown, mic_refresh_btn], alignment=ft.MainAxisAlignment.START),
+                    mic_status_container,
+                ],
+                description="Select your preferred microphone. We'll track it by name even if you unplug/replug it.",
+                icon=ft.Icons.MIC_NONE_OUTLINED,
+            ),
+        ],
+        spacing=12,
+        scroll=ft.ScrollMode.AUTO,
+    )
+
+    # --- Models Tab ---
     whisper_model = ft.Dropdown(
         label="Whisper Model",
         options=[ft.dropdown.Option("whisper-large-v3"), ft.dropdown.Option("whisper-large-v3-turbo")],
         width=300,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
     )
-    whisper_language = ft.TextField(label="Language (e.g., 'en' or empty for auto)", width=300)
-    openrouter_model = ft.TextField(label="OpenRouter Model (correction)", width=400)
-    text_editing_model = ft.TextField(label="Text Editing Model", width=400)
+    whisper_language = ft.TextField(
+        label="Language Code",
+        hint_text="e.g. 'en' (empty = auto)",
+        width=300,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    openrouter_model = ft.TextField(
+        label="OpenRouter Model (Correction)",
+        width=400,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    text_editing_model = ft.TextField(
+        label="Text Editing Model",
+        width=400,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
 
     models_tab = ft.Column(
         [
             section(
-                "ASR (Whisper)",
-                [ft.Row([whisper_model, whisper_language])],
-                description="Cloud Whisper via Groq; set model and optional language.",
+                "Speech Recognition",
+                [
+                    whisper_model,
+                    whisper_language
+                ],
+                description="Cloud Whisper settings via Groq.",
                 icon=ft.Icons.SPEED_OUTLINED,
             ),
             section(
-                "LLMs",
-                [openrouter_model, text_editing_model],
-                description="Models used for correction and text editing (via OpenRouter).",
-                icon=ft.Icons.TEXT_FIELDS_OUTLINED,
+                "Language Models",
+                [
+                    openrouter_model,
+                    text_editing_model
+                ],
+                description="Models used for correction and text transformations.",
+                icon=ft.Icons.SMART_TOY_OUTLINED,
             ),
         ],
-        spacing=16,
+        spacing=12,
         scroll=ft.ScrollMode.AUTO,
     )
 
-    enable_context = ft.Checkbox(label="Enable context from previous transcriptions")
-    context_history_count = ft.TextField(label="History Count", width=200, input_filter=ft.NumbersOnlyInputFilter())
-    context_max_age_seconds = ft.TextField(label="Max Age (seconds)", width=220, input_filter=ft.NumbersOnlyInputFilter())
-    enable_app_context = ft.Checkbox(label="Enable application context detection")
-    app_context_timeout = ft.TextField(label="Detection Timeout (seconds)", width=220, input_filter=ft.NumbersOnlyInputFilter())
+    # --- Context Tab ---
+    enable_context = ft.Checkbox(label="Enable context from previous transcriptions", active_color=ACCENT)
+    context_history_count = ft.TextField(
+        label="History Count",
+        width=200,
+        input_filter=ft.NumbersOnlyInputFilter(),
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    context_max_age_seconds = ft.TextField(
+        label="Max Age",
+        width=220,
+        input_filter=ft.NumbersOnlyInputFilter(),
+        suffix_text="sec",
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    enable_app_context = ft.Checkbox(label="Enable application context detection", active_color=ACCENT)
+    app_context_timeout = ft.TextField(
+        label="Detection Timeout",
+        width=220,
+        input_filter=ft.NumbersOnlyInputFilter(),
+        suffix_text="sec",
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
 
     context_tab = ft.Column(
         [
             section(
-                "Transcription Context",
-                [enable_context, ft.Row([context_history_count, context_max_age_seconds])],
-                description="Include previous results for continuity.",
+                "Conversation Memory",
+                [
+                    enable_context,
+                    ft.Row([context_history_count, context_max_age_seconds]),
+                ],
+                description="Uses recent transcriptions to improve accuracy and maintain continuity.",
                 icon=ft.Icons.HISTORY_TOGGLE_OFF,
             ),
             section(
-                "Application Context",
-                [enable_app_context, app_context_timeout],
-                description="Use current app/window to bias vocabulary.",
+                "App Awareness",
+                [
+                    enable_app_context,
+                    app_context_timeout
+                ],
+                description="Uses the active application window to bias vocabulary (e.g. coding terms in VS Code).",
                 icon=ft.Icons.APP_SHORTCUT_OUTLINED,
             ),
         ],
-        spacing=16,
+        spacing=12,
         scroll=ft.ScrollMode.AUTO,
     )
 
-    system_context = ft.TextField(label="System Context (transcription)", multiline=True, min_lines=6, width=800)
-    text_editing_context = ft.TextField(label="Text Editing Context", multiline=True, min_lines=4, width=800)
+    # --- Prompts Tab ---
+    system_context = ft.TextField(
+        label="System Prompt (Transcription)",
+        multiline=True,
+        min_lines=6,
+        width=800,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
+    text_editing_context = ft.TextField(
+        label="System Prompt (Text Editing)",
+        multiline=True,
+        min_lines=4,
+        width=800,
+        text_size=13,
+        border_color=BORDER,
+        bgcolor=BG_DARK,
+    )
 
     prompts_tab = ft.Column(
         [
             section(
-                "System Context",
+                "Transcription Guidelines",
                 [system_context],
-                description="Guides how transcription is corrected.",
+                description="Instructions for the AI on how to format, correct, and style transcriptions.",
                 icon=ft.Icons.TIPS_AND_UPDATES_OUTLINED,
             ),
             section(
-                "Text Editing Context",
+                "Editing Guidelines",
                 [text_editing_context],
-                description="Controls how voice commands transform selected text.",
+                description="Instructions for voice-commanded text editing.",
                 icon=ft.Icons.EDIT_NOTE_OUTLINED,
             ),
         ],
-        spacing=16,
+        spacing=12,
         scroll=ft.ScrollMode.AUTO,
     )
 
+    # --- Main Layout ---
     tabs = ft.Tabs(
         tabs=[
-            ft.Tab(text="API Keys", content=api_tab),
-            ft.Tab(text="General", content=general_tab),
-            ft.Tab(text="Models", content=models_tab),
-            ft.Tab(text="Context", content=context_tab),
-            ft.Tab(text="Prompts", content=prompts_tab),
+            ft.Tab(text="General", content=general_tab, icon=ft.Icons.TUNE),
+            ft.Tab(text="Audio", content=audio_tab, icon=ft.Icons.MIC),
+            ft.Tab(text="API Keys", content=api_tab, icon=ft.Icons.KEY),
+            ft.Tab(text="Models", content=models_tab, icon=ft.Icons.PSYCHOLOGY),
+            ft.Tab(text="Context", content=context_tab, icon=ft.Icons.MEMORY),
+            ft.Tab(text="Prompts", content=prompts_tab, icon=ft.Icons.DESCRIPTION),
         ],
-        expand=1,
+        expand=True,
         indicator_color=ACCENT,
-        label_color="#E5E7EB",
-        unselected_label_color="#9BA3AF",
-        divider_color=STROKE,
+        label_color=TEXT_MAIN,
+        unselected_label_color=TEXT_MUTED,
+        divider_color=BORDER,
+        animation_duration=300,
+        scrollable=True,
     )
 
     def load_all() -> None:
@@ -244,37 +445,7 @@ def settings_app(page: ft.Page) -> None:
         auto_copy_result.value = bool(config.get_value("AUTO_COPY_RESULT_TO_CLIPBOARD"))
 
         # Load microphone devices using smart mic manager
-        try:
-            devices = list_input_devices()
-            # Add "System Default" option at the top
-            mic_devices_dropdown.options = [
-                ft.dropdown.Option(key="__default__", text="System Default")
-            ] + [
-                ft.dropdown.Option(key=dev.name, text=get_device_display_label(dev))
-                for dev in devices
-            ]
-            
-            # Find and select the configured device
-            configured_name = config.get_value("MIC_DEVICE_NAME") or ""
-            if configured_name:
-                # Try to find device by name
-                found_device = find_device_by_name(configured_name, devices)
-                if found_device:
-                    mic_devices_dropdown.value = found_device.name
-                else:
-                    # Device not currently available - still show the saved name
-                    mic_devices_dropdown.value = "__default__"
-            else:
-                mic_devices_dropdown.value = "__default__"
-            
-            # Update status
-            status_msg, is_available = check_preferred_device_status()
-            mic_status_text.value = status_msg
-            mic_status_text.color = "#4ADE80" if is_available else "#F87171"
-        except Exception as _e:
-            mic_devices_dropdown.options = [ft.dropdown.Option(key="__default__", text="System Default")]
-            mic_status_text.value = f"Error listing devices: {_e}"
-            mic_status_text.color = "#F87171"
+        refresh_devices()
 
         whisper_model.value = config.get_value("WHISPER_MODEL") or "whisper-large-v3"
         whisper_language.value = config.get_value("WHISPER_LANGUAGE") or ""
@@ -333,29 +504,23 @@ def settings_app(page: ft.Page) -> None:
             config.set_value("TEXT_EDITING_CONTEXT", text_editing_context.value)
 
             config.save_config()
-            page.snack_bar = ft.SnackBar(ft.Text("Settings saved."))
-            page.snack_bar.open = True
-            page.update()
+            show_snack("Settings saved successfully", SUCCESS)
         except Exception as ex:
-            page.snack_bar = ft.SnackBar(ft.Text(f"Error saving settings: {ex}"))
-            page.snack_bar.open = True
-            page.update()
+            show_snack(f"Error saving settings: {ex}", ERROR)
 
     def reset_defaults(_=None) -> None:
         try:
             config.reset_to_defaults()
             load_all()
-            page.snack_bar = ft.SnackBar(ft.Text("Reset to defaults."))
-            page.snack_bar.open = True
-            page.update()
+            show_snack("Reset to defaults", ACCENT)
         except Exception as ex:
-            page.snack_bar = ft.SnackBar(ft.Text(f"Error resetting: {ex}"))
-            page.snack_bar.open = True
-            page.update()
+            show_snack(f"Error resetting: {ex}", ERROR)
 
     def refresh_devices(_=None):
         try:
+            nonlocal devices_cache
             devices = list_input_devices()
+            devices_cache = devices
             # Add "System Default" option at the top
             mic_devices_dropdown.options = [
                 ft.dropdown.Option(key="__default__", text="System Default")
@@ -363,49 +528,74 @@ def settings_app(page: ft.Page) -> None:
                 ft.dropdown.Option(key=dev.name, text=get_device_display_label(dev))
                 for dev in devices
             ]
-            
-            # Update status
-            status_msg, is_available = check_preferred_device_status()
-            mic_status_text.value = status_msg
-            mic_status_text.color = "#4ADE80" if is_available else "#F87171"
-            
-            page.snack_bar = ft.SnackBar(ft.Text(f"Found {len(devices)} input device(s)"))
-            page.snack_bar.open = True
-            page.update()
+
+            # Find and select the configured device
+            configured_name = config.get_value("MIC_DEVICE_NAME") or ""
+            if configured_name:
+                found_device = find_device_by_name(configured_name, devices)
+                if found_device:
+                    mic_devices_dropdown.value = found_device.name
+                else:
+                    mic_devices_dropdown.value = "__default__"
+            else:
+                mic_devices_dropdown.value = "__default__"
+
+            # Update status based on current selection
+            update_mic_status(mic_devices_dropdown.value)
+
+            # Only show snackbar if triggered by button click (not initial load)
+            if _ is not None:
+                show_snack(f"Found {len(devices)} input device(s)", ACCENT)
+
+            mic_devices_dropdown.update()
         except Exception as ex:
-            page.snack_bar = ft.SnackBar(ft.Text(f"Error listing devices: {ex}"))
-            page.snack_bar.open = True
-            page.update()
+            if _ is not None:
+                show_snack(f"Error listing devices: {ex}", ERROR)
 
     mic_refresh_btn.on_click = refresh_devices
 
-    save_btn = ft.FilledButton(text="Save", on_click=save_all)
-    reset_btn = ft.OutlinedButton(text="Reset to Defaults", on_click=reset_defaults)
-    close_btn = ft.TextButton(text="Close", on_click=lambda e: page.window.close())
-
-    title = ft.Text(
-        "MergeScribe – Settings",
-        size=16,
-        weight=ft.FontWeight.W_600,
-        color="#E5E7EB",
+    save_btn = ft.ElevatedButton(
+        text="Save Changes",
+        icon=ft.Icons.SAVE,
+        style=ft.ButtonStyle(
+            color=ft.Colors.WHITE,
+            bgcolor=ACCENT,
+            shape=ft.RoundedRectangleBorder(radius=8),
+        ),
+        on_click=save_all,
+        height=40,
     )
-    header_row = ft.Row([title], alignment=ft.MainAxisAlignment.START)
-    header_divider = ft.Container(height=2, gradient=GRADIENT_HEADER, border_radius=1)
-    header = ft.Column([header_row, header_divider], spacing=6)
+
+    reset_btn = ft.TextButton(
+        text="Reset Defaults",
+        on_click=reset_defaults,
+        style=ft.ButtonStyle(color=TEXT_MUTED)
+    )
+
+    close_btn = ft.TextButton(
+        text="Close",
+        on_click=lambda e: page.window.close(),
+        style=ft.ButtonStyle(color=TEXT_MAIN)
+    )
+
+    header = ft.Row(
+        [
+            ft.Icon(ft.Icons.SETTINGS, size=20, color=ACCENT),
+            ft.Text("MergeScribe Settings", size=16, weight=ft.FontWeight.W_600, color="#E5E7EB"),
+        ],
+        spacing=8,
+    )
 
     page.add(
         header,
-        ft.Container(height=4),
-        tabs,
-        ft.Container(height=8),
-        ft.Row(
-            [
-                reset_btn,
-                ft.Container(expand=True),
-                close_btn,
-                save_btn,
-            ],
-            alignment=ft.MainAxisAlignment.END,
+        ft.Container(content=tabs, expand=True),
+        ft.Divider(color=BORDER, height=1),
+        ft.Container(
+            content=ft.Row(
+                [reset_btn, ft.Container(expand=True), close_btn, save_btn],
+                alignment=ft.MainAxisAlignment.END,
+            ),
+            padding=ft.padding.only(top=8),
         ),
     )
 
@@ -418,5 +608,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

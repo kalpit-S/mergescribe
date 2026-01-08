@@ -171,9 +171,9 @@ def _update_stored_index(new_index: int) -> None:
 
 
 def get_device_display_label(device: MicDevice) -> str:
-    """Get a display label for a device, showing index and name."""
-    default_marker = " ⭐" if device.is_default else ""
-    return f"[{device.index}] {device.name}{default_marker}"
+    """Get a display label for a device."""
+    default_marker = " (default)" if device.is_default else ""
+    return f"{device.name}{default_marker}"
 
 
 def save_preferred_device(device: Optional[MicDevice]) -> None:
@@ -210,7 +210,7 @@ def check_preferred_device_status() -> tuple[str, bool]:
     device = find_device_by_name(stored_name, devices)
     
     if device:
-        return f"✓ '{clean_name}' available at index {device.index}", True
+        return f"✓ '{clean_name}' ready", True
     else:
         available_names = [d.name for d in devices[:3]]  # Show first 3 available
         available_str = ", ".join(available_names) if available_names else "none found"
