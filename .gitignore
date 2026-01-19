@@ -54,6 +54,9 @@ htmlcov/
 .vscode/
 .history/
 
+# Gemini CLI temp files
+.gemini-clipboard/
+
 # Logs and keys
 logs/
 *.log
@@ -62,3 +65,13 @@ logs/
 *.crt
 todo.md
 venv/bin/dotenv
+verify_changes.py
+
+# Training data (local recordings)
+training/
+*.wav
+
+# Internal dev docs
+ARCHITECTURE_PLAN.md
+CLAUDE.md
+ROADMAP.md
