@@ -79,17 +79,18 @@ Open **Settings** via the 🎙️ icon in the menu bar.
 
 ```mermaid
 graph TD
-    User[User Speaks] --> Mic1[Mic 1: USB]
-    User --> Mic2[Mic 2: MacBook]
-    User --> Mic3[Mic 3: AirPods]
+    User[User Speaks] --> Mic1[USB Mic]
+    User --> Mic2[MacBook Mic]
 
-    Mic1 -->|Stream| LocalAI[Parakeet MLX]
-    Mic2 -->|Stream| LocalAI
-    Mic3 -->|Stream| LocalAI
+    Mic1 --> Parakeet[Parakeet Local]
+    Mic1 --> Whisper[Groq Whisper]
+    Mic2 --> Parakeet
+    Mic2 --> Whisper
 
-    LocalAI -->|Text A| Consensus{Consensus?}
-    LocalAI -->|Text B| Consensus
-    LocalAI -->|Text C| Consensus
+    Parakeet -->|Text 1| Consensus{Consensus?}
+    Parakeet -->|Text 2| Consensus
+    Whisper -->|Text 3| Consensus
+    Whisper -->|Text 4| Consensus
 
     Consensus -->|Yes| Typer[Type Output]
     Consensus -->|No| LLM[LLM Correction]
