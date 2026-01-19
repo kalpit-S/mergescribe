@@ -100,4 +100,10 @@ graph TD
 
 ---
 
+## 🗺️ Roadmap
+
+**Data Flywheel (Coming Soon):** Opt-in local recording to build a personal dataset for fine-tuning the local model on your voice, accent, and vocabulary.
+
+---
+
 License: MIT
