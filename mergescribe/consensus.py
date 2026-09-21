@@ -75,10 +75,19 @@ def check_consensus(
 
     # Count occurrences
     counts = Counter(norm for _, norm in normalized)
-    winner_norm, count = counts.most_common(1)[0]
+    winner_norm, _ = counts.most_common(1)[0]
+
+    # Count distinct PROVIDERS, not raw matching results. The same model
+    # transcribing two mics agrees with itself on its own systematic errors:
+    # two mics rule out acoustic noise, not model bias. Proper nouns and jargon
+    # (a surname heard as a common word) are pure model prior, so both mics return
+    # the identical mistake, it carries no filler to trip the gate below, and
+    # the fast path would type it while skipping the LLM cleanup that exists to
+    # fix it. Cross-provider agreement is evidence; cross-mic agreement is not.
+    agreeing_providers = {r.provider for r, norm in normalized if norm == winner_norm}
 
     # Check thresholds
-    if count >= config.consensus_threshold:
+    if len(agreeing_providers) >= config.consensus_threshold:
         word_count = len(winner_norm.split())
         if word_count <= config.consensus_max_words:
             # Check for filler words - route to LLM if found

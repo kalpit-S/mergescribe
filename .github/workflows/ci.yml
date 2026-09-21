@@ -1,7 +1,9 @@
 name: CI
 
 on:
-  # Make this workflow manual-only to avoid running on every push/PR
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:

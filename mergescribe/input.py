@@ -41,6 +41,9 @@ class InputController:
         self.last_press_time: float = 0.0
         self._lock = threading.Lock()
         self._toggle_timer: Optional[threading.Timer] = None
+        self._pending_stop_timer: Optional[threading.Timer] = None
+        self._awaiting_second_tap: bool = False
+        self._trigger_press_started_at: Optional[float] = None
 
         # Callbacks
         self.on_start_recording: Optional[Callable[[], None]] = None
@@ -80,15 +83,20 @@ class InputController:
 
             self._trigger_key_pressed = True
             now = time.time()
+            self._trigger_press_started_at = now
 
-            # Check for double-tap (toggle mode)
-            if now - self.last_press_time < self.config.double_tap_threshold:
+            if self.state == "toggle_recording":
+                # In toggle mode, press stops recording (always, regardless of timing)
+                self._stop_recording()
+            elif (
+                self.state == "recording"
+                and self._awaiting_second_tap
+                and now - self.last_press_time < self.config.double_tap_threshold
+            ):
+                # Second tap within threshold -> enter toggle mode without stopping/processing in between
                 self._enter_toggle_mode()
             elif self.state == "idle":
                 self._start_recording()
-            elif self.state == "toggle_recording":
-                # In toggle mode, press stops recording
-                self._stop_recording()
 
             self.last_press_time = now
 
@@ -112,11 +120,21 @@ class InputController:
 
         with self._lock:
             self._trigger_key_pressed = False
+            now = time.time()
 
             if self.state == "recording":
-                # Hold mode: release stops recording
-                self._stop_recording()
+                # If this was a short tap, wait for the double-tap window to expire
+                # before stopping. This prevents a first tap from triggering
+                # processing and blocking the second tap.
+                press_started_at = self._trigger_press_started_at or now
+                press_duration = now - press_started_at
+                if press_duration >= self.config.double_tap_threshold:
+                    self._stop_recording()
+                else:
+                    remaining = self.config.double_tap_threshold - press_duration
+                    self._arm_pending_stop(remaining)
             # Toggle mode: release does nothing
+            self._trigger_press_started_at = None
 
     def _is_trigger_key(self, key) -> bool:
         """Check if key is the recording trigger."""
@@ -139,6 +157,8 @@ class InputController:
 
     def _start_recording(self) -> None:
         """Start recording (must hold lock)."""
+        self._awaiting_second_tap = False
+        self._cancel_pending_stop_timer()
         self.state = "recording"
         if self.on_start_recording:
             self.on_start_recording()
@@ -146,24 +166,38 @@ class InputController:
     def _stop_recording(self) -> None:
         """Stop recording (must hold lock)."""
         self.state = "idle"
+        self._awaiting_second_tap = False
+        self._cancel_pending_stop_timer()
         self._cancel_toggle_timer()
         if self.on_stop_recording:
             self.on_stop_recording()
 
     def _enter_toggle_mode(self) -> None:
         """Enter toggle recording mode (must hold lock)."""
-        if self.state == "idle":
+        if self.state == "recording":
+            # Transition from hold-mode recording into toggle recording without restarting
             self.state = "toggle_recording"
+            self._awaiting_second_tap = False
+            self._cancel_pending_stop_timer()
+        elif self.state == "idle":
+            # Allow entering toggle from idle for callers, but on_key_press should
+            # generally start recording first.
+            self.state = "toggle_recording"
+            self._awaiting_second_tap = False
+            self._cancel_pending_stop_timer()
             if self.on_start_recording:
                 self.on_start_recording()
+        else:
+            return
 
-            # Safety timeout
-            self._cancel_toggle_timer()
-            self._toggle_timer = threading.Timer(
-                self.config.toggle_mode_timeout,
-                self._toggle_timeout
-            )
-            self._toggle_timer.start()
+        # Safety timeout
+        self._cancel_toggle_timer()
+        self._toggle_timer = threading.Timer(
+            self.config.toggle_mode_timeout,
+            self._toggle_timeout
+        )
+        self._toggle_timer.daemon = True
+        self._toggle_timer.start()
 
     def _toggle_timeout(self) -> None:
         """Called when toggle mode times out."""
@@ -178,12 +212,36 @@ class InputController:
             self._toggle_timer.cancel()
             self._toggle_timer = None
 
+    def _arm_pending_stop(self, delay_seconds: float) -> None:
+        """Arm a delayed stop to allow a double-tap to convert to toggle mode."""
+        self._awaiting_second_tap = True
+        self._cancel_pending_stop_timer()
+        self._pending_stop_timer = threading.Timer(delay_seconds, self._pending_stop_timeout)
+        self._pending_stop_timer.daemon = True
+        self._pending_stop_timer.start()
+
+    def _pending_stop_timeout(self) -> None:
+        """Called when the double-tap window expires after a short tap."""
+        with self._lock:
+            self._pending_stop_timer = None
+            if self.state == "recording" and self._awaiting_second_tap:
+                self._stop_recording()
+
+    def _cancel_pending_stop_timer(self) -> None:
+        """Cancel any pending delayed stop."""
+        if self._pending_stop_timer:
+            self._pending_stop_timer.cancel()
+            self._pending_stop_timer = None
+
     def _emergency_reset(self) -> None:
         """Emergency reset - stop everything."""
         with self._lock:
             self.state = "idle"
             self._trigger_key_pressed = False
             self._cancel_toggle_timer()
+            self._cancel_pending_stop_timer()
+            self._awaiting_second_tap = False
+            self._trigger_press_started_at = None
 
         if self.on_emergency_reset:
             self.on_emergency_reset()

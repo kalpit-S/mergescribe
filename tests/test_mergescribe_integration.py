@@ -8,7 +8,21 @@ import os
 import pytest
 import numpy as np
 import soundfile as sf
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
+
+
+def metal_available() -> bool:
+    """True when MLX can use the GPU.
+
+    Parakeet runs on worker threads, and MLX's CPU fallback has no stream in
+    them ("There is no Stream(cpu, 1) in current thread"), so a machine without
+    Metal — a CI runner, for instance — cannot exercise the real model at all.
+    """
+    try:
+        import mlx.core as mx
+        return mx.metal.is_available()
+    except Exception:
+        return False
 
 
 def load_test_audio(target_sr: int = 16000):
@@ -65,6 +79,38 @@ class TestConsensus:
 
         consensus = check_consensus(results, config)
         assert consensus == "Hello world"
+
+    def test_same_provider_two_mics_is_not_consensus(self):
+        """One model agreeing with itself across mics proves nothing about model bias."""
+        from mergescribe.consensus import check_consensus
+        from mergescribe.types import TranscriptionResult, ConfigSnapshot
+
+        results = [
+            TranscriptionResult(text="Ableton routing", provider="parakeet", mic="mbp", latency_ms=100),
+            TranscriptionResult(text="Ableton routing", provider="parakeet", mic="solocast", latency_ms=100),
+        ]
+
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 2
+        config.consensus_max_words = 50
+
+        assert check_consensus(results, config) is None
+
+    def test_two_providers_agreeing_is_consensus(self):
+        """Distinct models agreeing is real cross-model evidence."""
+        from mergescribe.consensus import check_consensus
+        from mergescribe.types import TranscriptionResult, ConfigSnapshot
+
+        results = [
+            TranscriptionResult(text="Ship it today", provider="parakeet", mic="mbp", latency_ms=100),
+            TranscriptionResult(text="Ship it today", provider="fish-audio", mic="mbp", latency_ms=100),
+        ]
+
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 2
+        config.consensus_max_words = 50
+
+        assert check_consensus(results, config) == "Ship it today"
 
     def test_consensus_punctuation_difference(self):
         """Test consensus ignores punctuation differences."""
@@ -136,7 +182,6 @@ class TestPromptBuilding:
             app_name="VS Code",
             window_title="test.py",
             bundle_id="com.microsoft.VSCode",
-            rigor_level="normal",
         )
 
         config = Mock(spec=ConfigSnapshot)
@@ -167,6 +212,8 @@ class TestProviderRegistry:
 
             if provider.model is None:
                 pytest.skip("Parakeet model not available")
+            if not metal_available():
+                pytest.skip("Parakeet needs a Metal GPU; MLX cannot run on worker threads without one")
 
             registry.providers["parakeet"] = provider
 
@@ -189,7 +236,6 @@ class TestEndToEndFlow:
         """Test full transcription flow with mocked LLM."""
         from mergescribe.types import TranscriptionResult, ConfigSnapshot
         from mergescribe.consensus import check_consensus
-        from mergescribe.correct import correct_with_llm
 
         # Simulate results from transcription
         results = [

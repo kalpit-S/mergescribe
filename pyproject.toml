@@ -1,41 +1,43 @@
 [project]
 name = "mergescribe"
-version = "0.1.0"
-description = "AI-powered transcription with multi-provider orchestration"
+version = "2.0.0"
+description = "Local-first macOS voice-to-text with parallel STT providers, LLM correction, and voice-driven output routing"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Kalpit Sutariya"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "soundfile==0.12.1",
     "numpy>=2.2.5",
-    "scipy>=1.12.0",
     "sounddevice==0.5.0",
     "pynput==1.7.7",
-    "pyautogui==0.9.54",
     "rumps>=0.4.0",
-    "flet>=0.24.0",
     "pyobjc-framework-Quartz>=10.2",
-    "groq>=0.31.0",
+    "pyobjc-framework-ApplicationServices>=10.2",
     "parakeet-mlx",
-    "python-dotenv==1.0.1",
     "requests>=2.31.0",
 ]
 
 
 
 
-[tool.black]
+[project.optional-dependencies]
+dev = ["ruff>=0.6.9", "pytest>=8.3.2"]
+
+[tool.ruff]
 line-length = 100
-target-version = ["py311"]
+target-version = "py311"
 
-[tool.mypy]
-python_version = "3.11"
-ignore_missing_imports = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-warn_unused_configs = true
-no_implicit_optional = true
+[tool.ruff.lint]
+# Pin the rule set instead of inheriting ruff's defaults: those widen between
+# releases, and CI installs the latest ruff, so "the defaults" is not a stable
+# contract. Broad `except` clauses are deliberate here (a failing HUD or metrics
+# write must never take recording down), so the rules that ban them stay off.
+select = ["E4", "E7", "E9", "F"]
 
-
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# So a bare `pytest` finds the package, not just `python -m pytest` (which puts
+# the working directory on sys.path itself).
+pythonpath = ["."]

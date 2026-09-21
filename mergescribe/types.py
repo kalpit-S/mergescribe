@@ -3,8 +3,7 @@ Shared type definitions for MergeScribe.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Callable
-from uuid import UUID
+from typing import Any, Optional, List, Dict
 import numpy as np
 
 
@@ -24,7 +23,6 @@ class AppContext:
     app_name: str           # e.g., "Code"
     window_title: str       # e.g., "main.py - mergescribe"
     bundle_id: str          # e.g., "com.microsoft.VSCode"
-    rigor_level: str        # "high" | "low" | "normal"
 
 
 @dataclass
@@ -52,8 +50,15 @@ class ConfigSnapshot:
 
     # API Keys
     openrouter_api_key: str
-    groq_api_key: str
-    gemini_api_key: str
+
+    # OpenRouter STT models to run in parallel (e.g. ["openai/gpt-4o-transcribe"])
+    openrouter_stt_models: List[str] = field(default_factory=list)
+
+    # Which model the OpenRouter correction call uses
+    openrouter_correction_model: str = "google/gemini-3.1-flash-lite"
+    openrouter_correction_provider_order: List[str] = field(default_factory=list)
+    openrouter_correction_allow_fallbacks: bool = True
+    openrouter_correction_reasoning_effort: str = ""
 
     # User customization
     custom_instructions: str = ""
@@ -66,16 +71,43 @@ class ConfigSnapshot:
     training_enabled: bool = False
     training_data_dir: str = ""
 
+    # Voice-driven output routing (AX field inventory + TARGET prefix).
+    # Experimental, opt-in — see DEFAULT_CONFIG.
+    field_routing_enabled: bool = False
+    routing_allowed_apps: List[str] = field(default_factory=list)
+    routing_instructions: str = ""
+
+    # Post-output edit detection (implicit correction signal)
+    edit_feedback_enabled: bool = True
+
+    # Separate consecutive dictations with a space (leading, when continuing).
+    space_between_dictations: bool = True
+
+    # Offer terms the user has corrected twice to the correction model.
+    learn_vocabulary: bool = True
+
+    # Stop waiting for stragglers once the fastest provider has answered and
+    # the slowest is taking disproportionately long. 0 disables the deadline.
+    provider_deadline_multiplier: float = 1.0
+    provider_deadline_min_ms: int = 2000
+
 
 @dataclass
 class LLMCorrectionResult:
     """Result from LLM correction with metadata for logging."""
     text: str
-    provider: str           # "groq", "gemini", "openrouter"
+    provider: str           # "openrouter"
     model: str              # e.g., "moonshotai/kimi-k2-instruct-0905"
     input_tokens_est: int   # Estimated input tokens
     latency_ms: float
     streamed: bool = False
+    generation_id: Optional[str] = None
+    backend_provider: Optional[str] = None      # OpenRouter upstream provider, if known
+    resolved_model: Optional[str] = None        # Provider/model revision returned by API, if known
+    provider_order: List[str] = field(default_factory=list)
+    allow_fallbacks: Optional[bool] = None
+    reasoning_effort: str = ""
+    usage: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -89,6 +121,7 @@ class TrainingMetadata:
 
     # Context
     app_context: Optional[Dict] = None          # Serialized AppContext
+    config_snapshot: Optional[Dict] = None      # Safe config fields, no API keys
 
     # Transcription results
     transcriptions: List[Dict] = field(default_factory=list)

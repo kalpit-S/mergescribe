@@ -7,7 +7,6 @@ Uses Apple Silicon optimizations via MLX framework.
 import gc
 import threading
 import time
-from typing import Optional
 
 import numpy as np
 
@@ -24,6 +23,7 @@ class ParakeetProvider(Provider):
     """
 
     name = "parakeet"
+    single_instance = True   # one MLX model behind a lock; see Provider.single_instance
 
     def __init__(self):
         self.model = None
@@ -84,8 +84,7 @@ class ParakeetProvider(Provider):
                 # Ensure audio is float32
                 audio_data = audio.astype(np.float32)
 
-                # Resample if needed (model expects 16kHz)
-                target_sr = self.preprocessor_config.sample_rate
+                # Sample rate is fixed at capture time (16kHz), no resample needed
                 if len(audio_data) > 0:
                     # Check if we need to resample based on expected audio length
                     # In production, we control sample rate at capture time

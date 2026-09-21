@@ -75,3 +75,9 @@ training/
 ARCHITECTURE_PLAN.md
 CLAUDE.md
 ROADMAP.md
+
+# Agent/assistant working files (not part of the app)
+.claude/
+.codex/
+AGENTS.md
+PARAKEET_FINETUNE_PLAN.md

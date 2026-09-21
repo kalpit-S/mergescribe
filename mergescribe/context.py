@@ -17,23 +17,46 @@ _context_cache: Tuple[float, Optional[AppContext]] = (0.0, None)
 _CONTEXT_CACHE_TTL = 0.3  # 300ms TTL - long enough to avoid repeated calls, short enough to detect window changes
 
 
-# Apps where we want aggressive grammar/spelling correction
-HIGH_RIGOR_APPS = {
-    "com.apple.mail",
-    "com.google.Chrome",  # Gmail, Docs
-    "com.microsoft.Outlook",
-    "com.microsoft.Word",
-    "com.apple.Notes",
-    "com.slack.Slack",
-}
+def _native_context():
+    """Frontmost app via NSWorkspace/AX — ~0.4ms vs ~700ms for osascript.
 
-# Apps where we want raw speed, natural phrasing
-LOW_RIGOR_APPS = {
-    "com.apple.Terminal",
-    "com.googlecode.iterm2",
-    "com.openai.chat",  # ChatGPT app
-    "com.anthropic.claudefordesktop",
-}
+    osascript's "first application process whose frontmost is true" walks every
+    process through Apple Events and was measured at 713ms median / 1.3s worst
+    case, all of it blocking the start of recording.
+    """
+    try:
+        from AppKit import NSWorkspace
+        from ApplicationServices import (
+            AXUIElementCreateApplication, AXUIElementCopyAttributeValue,
+        )
+    except ImportError:
+        return None
+
+    try:
+        app = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if app is None:
+            return None
+        name = str(app.localizedName() or "")
+        bundle = str(app.bundleIdentifier() or "")
+
+        def ax(el, attr):
+            try:
+                err, value = AXUIElementCopyAttributeValue(el, attr, None)
+                return value if err == 0 else None
+            except Exception:
+                return None
+
+        title = ""
+        app_el = AXUIElementCreateApplication(app.processIdentifier())
+        for attr in ("AXFocusedWindow", "AXMainWindow"):
+            window = ax(app_el, attr)
+            if window is not None:
+                title = str(ax(window, "AXTitle") or "")
+                if title:
+                    break
+        return (name, bundle, title)
+    except Exception:
+        return None
 
 
 def get_app_context() -> AppContext:
@@ -44,7 +67,7 @@ def get_app_context() -> AppContext:
     Results are cached for 300ms to avoid repeated calls.
 
     Returns:
-        AppContext with app name, window title, bundle ID, and rigor level
+        AppContext with app name, window title, and bundle ID
     """
     global _context_cache
 
@@ -57,6 +80,14 @@ def get_app_context() -> AppContext:
     window_title = ""
     bundle_id = ""
 
+    native = _native_context()
+    if native is not None:
+        app_name, bundle_id, window_title = native
+        context = AppContext(app_name=app_name, window_title=window_title, bundle_id=bundle_id)
+        _context_cache = (time.time(), context)
+        return context
+
+    # Fallback: osascript (slow, but works if the AX/AppKit path is unavailable)
     try:
         # Get frontmost app info via AppleScript
         script = '''
@@ -94,29 +125,16 @@ def get_app_context() -> AppContext:
     except Exception as e:
         print(f"get_app_context error: {e}")
 
-    # Determine rigor level
-    rigor_level = _determine_rigor(bundle_id)
-
     context = AppContext(
         app_name=app_name,
         window_title=window_title,
         bundle_id=bundle_id,
-        rigor_level=rigor_level,
     )
 
     # Cache result
     _context_cache = (time.time(), context)
 
     return context
-
-
-def _determine_rigor(bundle_id: str) -> str:
-    """Determine correction rigor level based on app."""
-    if bundle_id in HIGH_RIGOR_APPS:
-        return "high"
-    if bundle_id in LOW_RIGOR_APPS:
-        return "low"
-    return "normal"
 
 
 def detect_selected_text() -> Optional[str]:

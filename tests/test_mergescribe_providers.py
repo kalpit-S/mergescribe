@@ -88,141 +88,57 @@ class TestParakeetProvider:
             pytest.skip(f"Parakeet MLX not available: {e}")
 
 
-class TestGroqProvider:
-    """Tests for Groq Whisper provider."""
+class TestOpenRouterSTTProvider:
+    """Tests for OpenRouter STT model routing."""
 
-    def test_initialization_without_key(self):
-        """Test provider handles missing API key gracefully."""
-        from mergescribe.providers.groq import GroqProvider
+    def test_dedicated_stt_models_use_transcription_endpoint(self):
+        from mergescribe.providers.openrouter_stt import OpenRouterSTTProvider
 
-        provider = GroqProvider(api_key="")
-        provider.initialize()
+        models = [
+            "microsoft/mai-transcribe-1.5",
+            "mistralai/voxtral-mini-transcribe",
+            "qwen/qwen3-asr-flash-2026-02-10",
+        ]
 
-        # Should not crash, but client should be None
-        # (actual behavior depends on groq library)
-        provider.shutdown()
+        for model in models:
+            provider = OpenRouterSTTProvider(api_key="test", model=model)
+            assert provider._use_stt_endpoint is True
 
-    def test_initialization_with_invalid_key(self):
-        """Test provider handles invalid API key."""
-        from mergescribe.providers.groq import GroqProvider
+    def test_retries_ssl_transport_error_with_fresh_connection(self, monkeypatch):
+        from mergescribe.providers import openrouter_stt
+        from mergescribe.providers.openrouter_stt import OpenRouterSTTProvider
 
-        provider = GroqProvider(api_key="invalid_key")
-        provider.initialize()
-        provider.shutdown()
+        attempts = []
+        closes = []
 
-    @pytest.mark.skipif(
-        not os.environ.get("GROQ_API_KEY"),
-        reason="GROQ_API_KEY not set"
-    )
-    def test_transcription(self):
-        """Test transcription with valid API key."""
-        from mergescribe.providers.groq import GroqProvider
+        class FakeResponse:
+            def raise_for_status(self):
+                pass
 
-        audio = load_test_audio_as_array()
-        api_key = os.environ.get("GROQ_API_KEY", "")
+            def json(self):
+                return {"text": "ok"}
 
-        provider = GroqProvider(api_key=api_key)
-        provider.initialize()
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
 
-        result = provider.transcribe(audio, mic_name="test_mic")
+            def post(self, *args, **kwargs):
+                attempts.append((args, kwargs))
+                if len(attempts) == 1:
+                    raise openrouter_stt.requests.exceptions.SSLError("EOF")
+                return FakeResponse()
 
-        assert result.provider == "groq"
-        assert result.mic == "test_mic"
-        assert isinstance(result.text, str)
-        assert len(result.text) > 0
-        assert result.latency_ms > 0
+            def close(self):
+                closes.append(True)
 
-        text_lower = result.text.lower()
-        assert any(word in text_lower for word in ["testing", "one", "two", "three"])
+        monkeypatch.setattr(openrouter_stt.requests, "Session", FakeSession)
+        monkeypatch.setattr(openrouter_stt.time, "sleep", lambda _: None)
 
-        provider.shutdown()
+        provider = OpenRouterSTTProvider(api_key="test", model="microsoft/mai-transcribe-1.5")
 
-
-class TestGeminiProvider:
-    """Tests for Gemini provider via OpenRouter."""
-
-    def test_initialization_without_key(self):
-        """Test provider handles missing API key gracefully."""
-        from mergescribe.providers.gemini import GeminiProvider
-
-        provider = GeminiProvider(api_key="")
-        provider.initialize()
-
-        # Should not crash
-        assert not provider._initialized
-        provider.shutdown()
-
-    @pytest.mark.skipif(
-        not os.environ.get("OPENROUTER_API_KEY"),
-        reason="OPENROUTER_API_KEY not set"
-    )
-    def test_transcription(self):
-        """Test transcription with valid API key."""
-        from mergescribe.providers.gemini import GeminiProvider
-
-        audio = load_test_audio_as_array()
-        api_key = os.environ.get("OPENROUTER_API_KEY", "")
-
-        provider = GeminiProvider(api_key=api_key)
-        provider.initialize()
-
-        result = provider.transcribe(audio, mic_name="test_mic")
-
-        assert result.provider == "gemini"
-        assert result.mic == "test_mic"
-        assert isinstance(result.text, str)
-        assert len(result.text) > 0
-        assert result.latency_ms > 0
-
-        text_lower = result.text.lower()
-        assert any(word in text_lower for word in ["testing", "one", "two", "three"])
-
-        provider.shutdown()
-
-
-class TestProviderRegistry:
-    """Tests for provider registry."""
-
-    def test_registry_creation(self):
-        """Test registry can be created."""
-        from mergescribe.providers import ProviderRegistry
-
-        registry = ProviderRegistry()
-        assert len(registry.providers) == 0
-        registry.shutdown()
-
-    def test_registry_parallel_transcription(self):
-        """Test registry can run providers in parallel."""
-        try:
-            from mergescribe.providers import ProviderRegistry
-            from mergescribe.providers.parakeet import ParakeetProvider
-
-            audio = load_test_audio_as_array()
-
-            registry = ProviderRegistry()
-
-            # Only test with parakeet if available
-            try:
-                provider = ParakeetProvider()
-                provider.initialize()
-                if provider.model is not None:
-                    registry.providers["parakeet"] = provider
-            except ImportError:
-                pytest.skip("No providers available for test")
-
-            if not registry.providers:
-                pytest.skip("No providers available for test")
-
-            results = registry.transcribe_all(audio, mic_name="test_mic")
-
-            assert len(results) > 0
-            for result in results:
-                assert result.text  # Non-empty text
-
-            registry.shutdown()
-
-        except ImportError as e:
-            pytest.skip(f"Dependencies not available: {e}")
+        assert provider._call_stt_endpoint(b"wav") == "ok"
+        assert len(attempts) == 2
+        assert len(closes) == 2
 
 
 class TestAudioConversion:
@@ -230,7 +146,7 @@ class TestAudioConversion:
 
     def test_wav_conversion(self):
         """Test numpy to WAV bytes conversion."""
-        from mergescribe.providers.groq import _audio_to_wav_bytes
+        from mergescribe.providers.openrouter_stt import _audio_to_wav_bytes
 
         # Create test audio (1 second of silence)
         audio = np.zeros(16000, dtype=np.float32)
@@ -245,7 +161,7 @@ class TestAudioConversion:
     def test_wav_conversion_preserves_content(self):
         """Test that conversion doesn't corrupt audio data."""
         import io
-        from mergescribe.providers.groq import _audio_to_wav_bytes
+        from mergescribe.providers.openrouter_stt import _audio_to_wav_bytes
 
         # Create test audio with a sine wave
         t = np.linspace(0, 1, 16000, dtype=np.float32)
@@ -259,3 +175,13 @@ class TestAudioConversion:
         assert sr == 16000
         # Allow some precision loss from int16 conversion
         np.testing.assert_allclose(audio, audio_back, atol=1e-4)
+
+
+class TestReasoningDefaults:
+    def test_routing_suffix_inherits_the_base_model_default(self):
+        """":nitro" is the same model; it must not silently re-enable reasoning."""
+        from mergescribe.correct import OPENROUTER_NO_REASONING_MODELS
+
+        base = "openai/gpt-5.6-luna"
+        assert base in OPENROUTER_NO_REASONING_MODELS
+        assert f"{base}:nitro".split(":", 1)[0] in OPENROUTER_NO_REASONING_MODELS

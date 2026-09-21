@@ -4,12 +4,10 @@ Tests for mergescribe AudioEngine.
 Includes both unit tests (mocked) and hardware tests (real mics).
 """
 
-import os
 import time
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
-import threading
 
 
 class TestAudioEngineUnit:
@@ -34,7 +32,7 @@ class TestAudioEngineUnit:
 
     def test_silence_detection(self):
         """Test silence detection with various audio levels."""
-        from mergescribe.audio import AudioEngine, SILENCE_THRESHOLD_DB
+        from mergescribe.audio import AudioEngine
         from mergescribe.config import Config
 
         config = Mock(spec=Config)
@@ -46,19 +44,55 @@ class TestAudioEngineUnit:
 
         # Pure silence (zeros)
         silence = np.zeros(1024, dtype=np.float32)
-        assert engine._is_silence(silence) == True
+        assert engine._is_silence(silence)
 
         # Very quiet (below threshold)
         quiet = np.random.randn(1024).astype(np.float32) * 0.0001
-        assert engine._is_silence(quiet) == True
+        assert engine._is_silence(quiet)
 
         # Normal speech level (above threshold)
         speech = np.random.randn(1024).astype(np.float32) * 0.1
-        assert engine._is_silence(speech) == False
+        assert not engine._is_silence(speech)
 
         # Loud audio
         loud = np.random.randn(1024).astype(np.float32) * 0.5
-        assert engine._is_silence(loud) == False
+        assert not engine._is_silence(loud)
+
+    def test_adaptive_silence_hysteresis(self):
+        """Adaptive silence detection uses hysteresis to avoid flicker in noise."""
+        from mergescribe.audio import AudioEngine
+        from mergescribe.config import Config
+        from collections import deque
+
+        def audio_for_db(db: float, n: int = 1024) -> np.ndarray:
+            # Use a constant signal so RMS == value.
+            rms = 10 ** (db / 20)
+            return np.full(n, rms, dtype=np.float32)
+
+        config = Config()
+        config.enabled_mics = []
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 2.0
+        config.sample_rate = 16000
+        config.chunk_on_silence = True
+        config.adaptive_threshold_enabled = True
+        config.speech_headroom_db = 12.0
+        config.speech_hysteresis_db = 3.0
+        config.noise_floor_percentile = 10
+
+        engine = AudioEngine(config)
+
+        # Seed adaptive state for a fake mic
+        engine._noise_floor_samples["mic1"] = deque(maxlen=100)
+        engine._noise_floor_cache["mic1"] = -30.0
+        engine._speech_active["mic1"] = False
+
+        # Above start threshold (-30 + 12 = -18) => speech
+        assert engine._is_silence(audio_for_db(-17.0), "mic1") is False
+        # Drop below start but above release (-30 + 9 = -21) => still speech
+        assert engine._is_silence(audio_for_db(-20.0), "mic1") is False
+        # Drop below release => silence
+        assert engine._is_silence(audio_for_db(-23.0), "mic1") is True
 
     def test_flush_current_chunk(self):
         """Test chunk flushing concatenates buffers correctly."""
@@ -201,6 +235,44 @@ class TestAudioEngineUnit:
 
         assert engine._find_device("NonexistentMic") is None
 
+    @patch('sounddevice.InputStream')
+    @patch('sounddevice.query_devices')
+    def test_sync_configured_mics_applies_settings_changes(self, mock_query, mock_input_stream):
+        """Idle mic sync opens newly enabled mics and removes disabled ones."""
+        from mergescribe.audio import AudioEngine
+        from mergescribe.config import Config
+
+        mock_query.return_value = [
+            {"name": "Mic1", "max_input_channels": 1},
+            {"name": "Mic2", "max_input_channels": 1},
+        ]
+
+        streams = []
+
+        def make_stream(*args, **kwargs):
+            stream = MagicMock()
+            stream.active = True
+            streams.append(stream)
+            return stream
+
+        mock_input_stream.side_effect = make_stream
+
+        config = Mock(spec=Config)
+        config.enabled_mics = ["Mic1", "Mic2"]
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 2.0
+        config.sample_rate = 16000
+
+        engine = AudioEngine(config)
+        assert set(engine.sync_configured_mics()) == {"Mic1", "Mic2"}
+
+        config.enabled_mics = ["Mic2"]
+        assert engine.sync_configured_mics() == ["Mic2"]
+        assert "Mic1" not in engine.streams
+        assert "Mic2" in engine.streams
+        streams[0].stop.assert_called_once()
+        streams[0].close.assert_called_once()
+
 
 class TestAudioEngineCallback:
     """Tests for audio callback behavior."""
@@ -250,6 +322,72 @@ class TestAudioEngineCallback:
 
         assert len(engine.current_chunk["mic1"]) == 1
 
+    def test_silence_only_chunk_is_never_emitted(self):
+        """Dead air must not reach the providers: STT hallucinates on silence."""
+        from mergescribe.audio import AudioEngine
+        from mergescribe.config import Config
+        from collections import deque
+        import time
+
+        config = Mock(spec=Config)
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 0.1
+        config.sample_rate = 16000
+
+        engine = AudioEngine(config)
+        engine.preroll_buffers["mic1"] = deque(maxlen=10)
+        # Well past MIN_CHUNK_SECONDS, but every sample of it is silence
+        engine.current_chunk["mic1"] = [np.zeros(80000, dtype=np.float32)]
+        engine.is_recording = True
+        engine._primary_mic = "mic1"
+        engine._chunk_has_speech = False
+        engine.last_speech_time = time.time() - 1.0
+
+        chunks_received = []
+        engine.on_chunk_ready = lambda c: chunks_received.append(c)
+
+        silence = np.zeros(1024, dtype=np.float32)
+        for _ in range(20):
+            engine._audio_callback("mic1", silence.reshape(-1, 1), 1024, None, None)
+
+        assert chunks_received == [], "silence-only chunk was emitted to providers"
+
+    def test_speech_after_silence_still_emits(self):
+        """The guard must not wedge the chunker: speech re-arms emission."""
+        from mergescribe.audio import AudioEngine
+        from mergescribe.config import Config
+        from collections import deque
+        import time
+
+        config = Mock(spec=Config)
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 0.1
+        config.sample_rate = 16000
+
+        engine = AudioEngine(config)
+        engine.preroll_buffers["mic1"] = deque(maxlen=10)
+        engine.current_chunk["mic1"] = [np.zeros(80000, dtype=np.float32)]
+        engine.is_recording = True
+        engine._primary_mic = "mic1"
+        engine._chunk_has_speech = False
+
+        chunks_received = []
+        engine.on_chunk_ready = lambda c: chunks_received.append(c)
+
+        # Loud audio marks the chunk as containing speech...
+        loud = (np.random.randn(1024) * 0.5).astype(np.float32)
+        engine._audio_callback("mic1", loud.reshape(-1, 1), 1024, None, None)
+        assert engine._chunk_has_speech
+
+        # ...then a pause emits it, and the flag resets for the next chunk
+        engine.last_speech_time = time.time() - 1.0
+        silence = np.zeros(1024, dtype=np.float32)
+        for _ in range(5):
+            engine._audio_callback("mic1", silence.reshape(-1, 1), 1024, None, None)
+
+        assert len(chunks_received) >= 1
+        assert not engine._chunk_has_speech
+
     def test_callback_emits_chunk_on_silence(self):
         """Test that chunk is emitted after sufficient silence."""
         from mergescribe.audio import AudioEngine
@@ -261,11 +399,17 @@ class TestAudioEngineCallback:
         config.silence_threshold = 0.1  # Very short for test
         config.sample_rate = 16000
 
+        import time
         engine = AudioEngine(config)
         engine.preroll_buffers["mic1"] = deque(maxlen=10)
         # Need at least MIN_CHUNK_SECONDS (5.0s) of audio = 80000 samples
         engine.current_chunk["mic1"] = [np.random.randn(80000).astype(np.float32)]
         engine.is_recording = True
+        engine._primary_mic = "mic1"  # Set primary mic for silence timing
+        # The buffer above stands in for speech already captured this chunk
+        engine._chunk_has_speech = True
+        # Set last_speech_time in the past so silence threshold is exceeded
+        engine.last_speech_time = time.time() - 1.0  # 1 second ago (> 0.1s threshold)
 
         # Track callback
         chunks_received = []
