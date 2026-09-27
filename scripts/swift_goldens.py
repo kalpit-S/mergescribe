@@ -192,6 +192,84 @@ def judge():
     return {"limit": LIMIT, "questions": asked, "decisions": decisions}
 
 
+def chunker():
+    """Scripted audio through the Python chunker, with a fake clock: what it emits, and when."""
+    from collections import deque
+    from unittest.mock import patch
+
+    import numpy as np
+
+    import mergescribe.audio as audio_module
+    from mergescribe.audio import FALLBACK_NOISE_FLOOR_DB, AudioEngine
+    from mergescribe.config import Config
+
+    BLOCK = 1024
+
+    def block(amp):
+        # A square wave: its RMS is exactly amp, in float32 and in Double alike.
+        out = np.full(BLOCK, amp, dtype=np.float32)
+        out[1::2] *= -1
+        return out
+
+    def run(mics, script):
+        config = Config()
+        config.enabled_mics = list(mics)
+        engine = AudioEngine(config)
+        preroll_chunks = int(engine._preroll_samples / BLOCK)
+        floor_samples = int(audio_module.NOISE_FLOOR_WINDOW_SECONDS * config.sample_rate / BLOCK)
+        for mic in mics:
+            engine.preroll_buffers[mic] = deque(maxlen=preroll_chunks)
+            engine.current_chunk[mic] = []
+            engine._noise_floor_samples[mic] = deque(maxlen=floor_samples)
+            engine._noise_floor_cache[mic] = FALLBACK_NOISE_FLOOR_DB
+            engine._speech_active[mic] = False
+        engine._primary_mic = mics[0]
+        clock = [1000.0]
+        events = []
+
+        def emitted(chunk):
+            events.append({"at": step[0], "lengths": [len(chunk[m]) for m in mics]})
+        engine.on_chunk_ready = emitted
+        step = [0]
+        with patch.object(audio_module.time, "time", lambda: clock[0]), \
+             patch.object(audio_module.time, "monotonic", lambda: clock[0]):
+            for index, entry in enumerate(script):
+                step[0] = index
+                if entry == "start":
+                    engine.start_recording()
+                    continue
+                if entry == "stop":
+                    final = engine.stop_recording()
+                    events.append({"at": index, "final": [len(final[m]) for m in mics]})
+                    continue
+                for mic, amp in zip(mics, entry):
+                    engine._audio_callback(mic, block(amp).reshape(-1, 1), BLOCK, None, None)
+                clock[0] += BLOCK / config.sample_rate
+        floors = [engine._noise_floor_cache[m] for m in mics]
+        return {"mics": list(mics), "script": script, "events": events, "floors": floors}
+
+    room, speech, quiet = 0.001, 0.1, 0.0002
+    one = lambda amp, n: [[amp]] * n
+    two = lambda a, b, n: [[a, b]] * n
+    scenarios = [
+        # A pause ends a chunk; the rest comes on release.
+        one(room, 100) + ["start"] + one(speech, 60) + one(room, 25) + one(speech, 30) + ["stop"],
+        # Short pauses don't cut; past 30s the next breath does; past 45s it is cut anyway.
+        two(room, room, 80) + ["start"] + (two(speech, 0.05, 40) + two(room, room, 8)) * 12
+            + two(speech, speech, 720) + ["stop"],
+        # Holding the key in silence emits nothing.
+        one(room, 50) + ["start"] + one(room, 600) + ["stop"],
+        # Speech just before the press is kept; stale pre-roll isn't possible with a steady clock.
+        one(room, 60) + one(speech, 5) + ["start"] + one(speech, 20) + ["stop"],
+        # A noisy room raises the floor; speech above it still counts.
+        one(0.02, 120) + ["start"] + one(0.3, 70) + one(0.02, 30) + one(0.3, 10) + ["stop"],
+        # A very quiet room: the floor drops well below the fallback.
+        one(quiet, 200) + ["start"] + one(0.004, 50) + one(quiet, 30) + ["stop"],
+    ]
+    return {"block": BLOCK, "scenarios": [run(["mic1"] if len(sc[0]) == 1 else ["mic1", "mic2"], sc)
+                                          for sc in scenarios]}
+
+
 def write(name, data):
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=1))
@@ -203,3 +281,4 @@ if __name__ == "__main__":
     write("feedback", feedback())
     write("prompts", prompts())
     write("judge", judge())
+    write("chunker", chunker())
