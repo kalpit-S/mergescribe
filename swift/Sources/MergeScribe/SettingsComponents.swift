@@ -65,7 +65,7 @@ struct Page<Content: View>: View {
                 content
             }
             .padding(.horizontal, 28)
-            .padding(.top, 36)
+            .padding(.top, 20)
             .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }

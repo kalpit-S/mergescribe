@@ -29,8 +29,7 @@ struct OverviewPane: View {
                     Stage(symbol: "mic", title: model.settings.enabledMics.first ?? "No microphone",
                           detail: model.settings.keepMicOpen ? "always listening" : "opens on the key")
                     StageArrow()
-                    Stage(symbol: "text.bubble", title: model.activeRecognizers.isEmpty ? "No recognizer" : model.activeRecognizers.joined(separator: ", "),
-                          detail: "fastest " + duration(fastestRecognizer))
+                    Stage(symbol: "text.bubble", title: recognizersTitle, detail: "fastest " + duration(fastestRecognizer))
                     StageArrow()
                     if model.settings.judgeEnabled {
                         Stage(symbol: "checkmark.seal", title: "Jev", detail: judgeLine, tint: .green)
@@ -56,7 +55,8 @@ struct OverviewPane: View {
                                 Text(entry.text).lineLimit(1)
                                 Spacer()
                                 Text(entry.app).foregroundStyle(.secondary).font(.caption)
-                                Text(entry.date, style: .relative).foregroundStyle(.tertiary).font(.caption).monospacedDigit()
+                                Text(entry.date, format: .relative(presentation: .named, unitsStyle: .abbreviated))
+                                    .foregroundStyle(.tertiary).font(.caption)
                             }
                         }
                         Button("All dictations") { navigation.section = .history }.buttonStyle(.link)
@@ -67,6 +67,11 @@ struct OverviewPane: View {
                 }
             }
         }
+    }
+
+    var recognizersTitle: String {
+        let names = model.activeRecognizers
+        return names.count > 2 ? "\(names.count) recognizers" : names.isEmpty ? "No recognizer" : names.joined(separator: ", ")
     }
 
     /// The quickest of the recognizers switched on now.
@@ -342,6 +347,9 @@ struct VocabularyPane: View {
                 Toggle(isOn: model.bind("learn_vocabulary", \.learnVocabulary)) {
                     RowLabel("Use your vocabulary", "Your words below, and corrections you've made the same way twice")
                 }
+                if model.supplied.isEmpty {
+                    Text("None yet").foregroundStyle(.secondary)
+                } else {
                 FlowLayout(spacing: 6) {
                     ForEach(model.supplied, id: \.self) { term in
                         HStack(spacing: 4) {
@@ -356,6 +364,7 @@ struct VocabularyPane: View {
                     }
                 }
                 .padding(.vertical, 4)
+                }
                 HStack {
                     TextField("Add a word or name", text: $newTerm, prompt: Text("Add a word or name")).labelsHidden()
                         .onSubmit(add)

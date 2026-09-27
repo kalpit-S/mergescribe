@@ -295,7 +295,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     init(http: HTTPClient) { model = SettingsModel(http: http) }
 
-    func present(section: SettingsSection? = nil) {
+    func present(section: SettingsSection? = nil, activate: Bool = true) {
         if let section { navigation.section = section }
         if window == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 680),
@@ -314,6 +314,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             model.reload()
             window.contentView = NSHostingView(rootView: SettingsView(model: model, navigation: navigation))
         }
+        guard activate else { window?.orderFrontRegardless(); return }   // a preview that leaves focus alone
         NSApp.setActivationPolicy(.regular)
         ensureEditMenu()
         window?.makeKeyAndOrderFront(nil)

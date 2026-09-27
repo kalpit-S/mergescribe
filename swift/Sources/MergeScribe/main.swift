@@ -106,14 +106,15 @@ case "hud-preview":
     app.run()
 
 case "settings-preview":
-    // The Settings window on its own, optionally opened at a section: settings-preview Stats
+    // The Settings window on its own, optionally opened at a section: settings-preview Stats [--background]
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
     let section = arguments.dropFirst().first.flatMap { name in
         SettingsSection.allCases.first { $0.rawValue.lowercased() == name.lowercased() }
     }
     let controller = MainActor.assumeIsolated { SettingsWindowController(http: URLSessionHTTPClient()) }
-    MainActor.assumeIsolated { controller.present(section: section) }
+    let background = arguments.contains("--background")
+    MainActor.assumeIsolated { controller.present(section: section, activate: !background) }
     app.run()
 
 case nil, "run":
