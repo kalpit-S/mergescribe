@@ -35,7 +35,7 @@ swift run --scratch-path .build-clt MergeScribe stats                       # th
 swift run --scratch-path .build-clt MergeScribe devices                     # input devices Core Audio sees
 swift run --scratch-path .build-clt MergeScribe hud-preview [--loop]        # the HUD playing a scripted dictation
 swift run --scratch-path .build-clt MergeScribe hud-frames <dir>            # the same, rendered to PNGs
-swift run --scratch-path .build-clt MergeScribe settings-preview            # the Settings window on its own
+swift run --scratch-path .build-clt MergeScribe settings-preview [Stats]    # the Settings window on its own, at a section
 swift run --scratch-path .build-clt MergeScribe apple-eval out.jsonl          # Apple's recognizer over saved dictations
 ```
 
@@ -66,4 +66,6 @@ decisions, chunking of scripted audio) and the Swift tests assert the same answe
   the moment, so a change in Settings never swaps them under a session that is finishing.
 - **Typing from a private event source**, so a modifier you are holding can't turn text into
   shortcuts.
+- **The whole dictation in the log.** `session_complete` keeps the full text (the Python app kept
+  500 characters) and says how it was typed (`output_method`), for History in Settings.
 - **Parakeet** (local transcription) is not in this build yet; its place is FluidAudio (Core ML).

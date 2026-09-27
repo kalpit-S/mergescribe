@@ -698,9 +698,9 @@ public final class Session: @unchecked Sendable {
     func teardown() {
         let s = state.current
         log("session_complete", ["total_duration_ms": .number((services.clock() - s.startTime) * 1000),
-                                 "chunks": JSON(s.chunkResults.count), "final_text": .string(String(s.finalText.prefix(500))),
+                                 "chunks": JSON(s.chunkResults.count), "final_text": .string(String(s.finalText.prefix(Stats.textLimit))),
                                  "words": JSON(s.finalText.split(whereSeparator: \.isWhitespace).count),
-                                 "app": .string(s.context?.appName ?? "")])
+                                 "app": .string(s.context?.appName ?? ""), "output_method": .string(s.outputMethod)])
         if settings.trainingEnabled, !s.finalText.isEmpty, !s.audio.isEmpty, let training = services.training {
             saveTrainingData(s, to: training)
         }

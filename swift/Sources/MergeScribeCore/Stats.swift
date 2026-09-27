@@ -5,8 +5,10 @@ import Foundation
 /// A dictation counts once it completes: how many words it produced, how long the key was
 /// held, and how long after release the text was done.
 public enum Stats {
-    /// session_complete kept this much text before it logged a word count.
+    /// session_complete kept this much text before it logged a word count (and the Python app
+    /// still does); the Swift app keeps up to textLimit, for History.
     static let oldTextLimit = 500
+    static let textLimit = 20_000
     /// Shorter dictations make a words-per-minute figure meaningless.
     static let minWords = 5
     public static let days = 14
@@ -108,42 +110,23 @@ public enum Stats {
         return result
     }
 
-    /// The events stats need. The log is tens of megabytes of mostly per-chunk events: the
-    /// few lines that matter are found by their bytes, and only those are parsed.
+    /// The events stats need.
     public static func scan(_ data: Data) -> (started: [String: Double], stopped: [String: Double], completed: [[String: JSON]]) {
         var started: [String: Double] = [:], stopped: [String: Double] = [:]
         var completed: [[String: JSON]] = []
-        let wanted: [[UInt8]] = [Array("\"recording_st".utf8), Array("\"session_complete\"".utf8)]
-        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Void in
-            guard let base = raw.baseAddress else { return }
-            var start = 0
-            while start < raw.count {
-                var end = raw.count
-                if let found = memchr(base + start, 0x0A, raw.count - start) {
-                    end = UnsafeRawPointer(found) - base
-                }
-                let line = UnsafeRawBufferPointer(rebasing: raw[start..<end])
-                start = end + 1
-                var matches = false
-                for needle in wanted where !matches {
-                    matches = needle.withUnsafeBytes { memmem(line.baseAddress, line.count, $0.baseAddress, $0.count) != nil }
-                }
-                guard matches,
-                      let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
-                      let ts = (object["ts"] as? NSNumber)?.doubleValue else { continue }
-                let session = object["session_id"] as? String ?? ""
-                switch object["event"] as? String {
-                case "recording_started": started[session] = ts
-                case "recording_stopped": stopped[session] = ts
-                case "session_complete": completed.append(object.mapValues { JSON(any: $0) })
-                default: break
-                }
+        MetricsScan.lines(data, containing: ["\"recording_st", "\"session_complete\""]) { object in
+            guard let ts = (object["ts"] as? NSNumber)?.doubleValue else { return }
+            let session = object["session_id"] as? String ?? ""
+            switch object["event"] as? String {
+            case "recording_started": started[session] = ts
+            case "recording_stopped": stopped[session] = ts
+            case "session_complete": completed.append(object.mapValues { JSON(any: $0) })
+            default: break
             }
         }
         return (started, stopped, completed)
     }
 
-    /// The word count from the training capture, for records that kept only part of the text.
     /// Words (runs between whitespace) and length in code points, in one pass over the scalars:
     /// counting Characters over twenty thousand records took seconds.
     static func wordsAndLength(_ text: String) -> (words: Int, length: Int) {
