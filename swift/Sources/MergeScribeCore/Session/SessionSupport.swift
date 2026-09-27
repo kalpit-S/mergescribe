@@ -247,11 +247,11 @@ public func blocking<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> 
 }
 
 /// Mutable state shared between a session's tasks.
-final class Locked<Value>: @unchecked Sendable {
+public final class Locked<Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
-    init(_ value: Value) { self.value = value }
-    func read<R>(_ body: (Value) -> R) -> R { lock.withLock { body(value) } }
-    @discardableResult func update<R>(_ body: (inout Value) -> R) -> R { lock.withLock { body(&value) } }
-    var current: Value { lock.withLock { value } }
+    public init(_ value: Value) { self.value = value }
+    public func read<R>(_ body: (Value) -> R) -> R { lock.withLock { body(value) } }
+    @discardableResult public func update<R>(_ body: (inout Value) -> R) -> R { lock.withLock { body(&value) } }
+    public var current: Value { lock.withLock { value } }
 }
