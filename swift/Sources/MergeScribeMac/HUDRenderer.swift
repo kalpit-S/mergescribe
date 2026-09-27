@@ -266,7 +266,7 @@ public enum HUDRenderer {
         return ctx.makeImage()
     }
 
-    nonisolated(unsafe) static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
     /// A Gaussian blur of the same extent, as Core Image does for a layer's content filter.
     static func blurred(_ image: CGImage, radius: Double) -> CGImage? {

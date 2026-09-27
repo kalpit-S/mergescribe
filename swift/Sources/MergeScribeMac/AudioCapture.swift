@@ -61,11 +61,11 @@ final class MicCapture: @unchecked Sendable {
             let heard = time.isHostTimeValid ? HostClock.seconds(time.hostTime) : HostClock.now
             let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
             guard let out = AVAudioPCMBuffer(pcmFormat: self.target, frameCapacity: capacity) else { return }
-            var fed = false
+            let fed = Locked(false)
             var error: NSError?
             converter.convert(to: out, error: &error) { _, status in
-                if fed { status.pointee = .noDataNow; return nil }
-                fed = true
+                if fed.current { status.pointee = .noDataNow; return nil }
+                fed.update { $0 = true }
                 status.pointee = .haveData
                 return buffer
             }

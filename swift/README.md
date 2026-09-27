@@ -13,8 +13,8 @@ open swift/build/MergeScribe.app
 
 Quit the Python app first: both listen for the same trigger key.
 
-The build uses Xcode's toolchain (`DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`,
-set by the script), with no third-party dependencies.
+The build uses the Command Line Tools toolchain (Swift 6.2 and the macOS 26 SDK, which
+SpeechAnalyzer needs), with no third-party dependencies.
 
 ### Permissions
 
@@ -29,14 +29,14 @@ Certificate, type Code Signing) and the build script uses it.
 
 ```bash
 cd swift
-export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-swift test                                        # 235 tests, a second or two
-swift run MergeScribe replay ~/.mergescribe/training/<date>/<session>   # a saved dictation, end to end
-swift run MergeScribe stats                       # the Stats page's numbers
-swift run MergeScribe devices                     # input devices Core Audio sees
-swift run MergeScribe hud-preview [--loop]        # the HUD playing a scripted dictation
-swift run MergeScribe hud-frames <dir>            # the same, rendered to PNGs
-swift run MergeScribe settings-preview            # the Settings window on its own
+scripts/test.sh                                   # the tests, a second or two
+swift run --scratch-path .build-clt MergeScribe replay ~/.mergescribe/training/<date>/<session>   # a saved dictation, end to end
+swift run --scratch-path .build-clt MergeScribe stats                       # the Stats page's numbers
+swift run --scratch-path .build-clt MergeScribe devices                     # input devices Core Audio sees
+swift run --scratch-path .build-clt MergeScribe hud-preview [--loop]        # the HUD playing a scripted dictation
+swift run --scratch-path .build-clt MergeScribe hud-frames <dir>            # the same, rendered to PNGs
+swift run --scratch-path .build-clt MergeScribe settings-preview            # the Settings window on its own
+swift run --scratch-path .build-clt MergeScribe apple-eval out.jsonl          # Apple's recognizer over saved dictations
 ```
 
 `replay` needs no microphone or accessibility permission: it runs a saved recording through

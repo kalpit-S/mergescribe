@@ -22,6 +22,17 @@ case "replay":
     finished.wait()
     exit(status.current)
 
+case "apple-eval":
+    let status = Locked<Int32>(1)
+    let finished = DispatchSemaphore(value: 0)
+    Task.detached {
+        let code = await AppleEval.run(arguments)
+        status.update { $0 = code }
+        finished.signal()
+    }
+    finished.wait()
+    exit(status.current)
+
 case "stats":
     let usage = Stats.usage()
     print("words:", usage.words, "dictations:", usage.dictations)

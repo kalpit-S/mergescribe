@@ -86,3 +86,4 @@ PARAKEET_FINETUNE_PLAN.md
 swift/.build/
 swift/.swiftpm/
 swift/build/
+swift/.build-clt/
