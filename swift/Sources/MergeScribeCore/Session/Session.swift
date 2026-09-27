@@ -88,6 +88,11 @@ public final class Session: @unchecked Sendable {
     }
 
     public var isCapturing: Bool { state.read(\.isCapturing) }
+    /// What the dictation became, and how it got out: "streamed", "judged" or "typed" went
+    /// into the window it started in; "clipboard" didn't.
+    public var outcome: (text: String, method: String, partial: Bool) {
+        state.read { ($0.finalText, $0.outputMethod, $0.partialOutput) }
+    }
     public var context: AppContext? { state.read(\.context) }
     var sid: String { id.uuidString.lowercased() }
 

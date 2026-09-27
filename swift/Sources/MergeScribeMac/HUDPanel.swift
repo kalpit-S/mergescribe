@@ -20,6 +20,7 @@ public final class HUD: SessionObserver, @unchecked Sendable {
     private let levelSource: @Sendable () -> Double
     private let lock = NSLock()
     private var enabled: Bool
+    private var liveWords = false
     private var lastToken = 0.0
     @MainActor private var panel: HUDPanel?
 
@@ -72,10 +73,21 @@ public final class HUD: SessionObserver, @unchecked Sendable {
     public func transcriptionDone(session: String) { forward { $0.transcriptionDone(session: session) } }
     public func correctionSkipped(session: String) { forward { $0.correctionSkipped(session: session) } }
     public func dictationDiscarded(session: String) { forward { $0.dictationDiscarded(session: session) } }
+    /// The session's transcript so far, after each chunk. Ignored while live words are on:
+    /// they are newer.
     public func partialText(session: String, text: String) {
+        guard !lock.withLock({ liveWords }) else { return }
         let tail = HUDModel.tailText(text)
         forward { $0.partialText(session: session, text: tail) }
     }
+
+    /// Words as they are being said (Apple's recognizer listening along).
+    public func liveText(session: String, text: String) {
+        let tail = HUDModel.tailText(text)
+        forward { $0.partialText(session: session, text: tail) }
+    }
+
+    public func setLiveWords(_ on: Bool) { lock.withLock { liveWords = on } }
 
     /// Throttled: a burst of tokens can't outpace the screen.
     public func tokenTyped(session: String) {

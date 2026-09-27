@@ -33,6 +33,30 @@ case "apple-eval":
     finished.wait()
     exit(status.current)
 
+case "live-test":
+    // A saved recording fed at real-time pace to the live transcriber, printing the words as the HUD would get them.
+    guard arguments.count >= 2, let data = try? Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+          let (samples, rate) = WAV.decode(data) else { print("usage: MergeScribe live-test <audio.wav>"); exit(2) }
+    let words = LiveWords()
+    let started = HostClock.now
+    let last = Locked("")
+    words.start(sampleRate: rate, vocabulary: VocabularyStore().knownTerms()) { text in
+        guard text != last.current else { return }
+        last.update { $0 = text }
+        print(String(format: "%5.2fs  ", HostClock.now - started) + text)
+    }
+    var offset = 0
+    while offset < samples.count {
+        let end = min(offset + Chunker.blockSize, samples.count)
+        words.append(Array(samples[offset..<end]))
+        offset = end
+        usleep(useconds_t(Double(Chunker.blockSize) / Double(rate) * 1_000_000))
+    }
+    print(String(format: "%5.2fs  (audio ends)", HostClock.now - started))
+    usleep(1_500_000)
+    words.stop()
+    exit(0)
+
 case "stats":
     let usage = Stats.usage()
     print("words:", usage.words, "dictations:", usage.dictations)

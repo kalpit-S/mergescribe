@@ -32,6 +32,8 @@ public final class InputStateMachine: @unchecked Sendable {
     private let clock: @Sendable () -> Double
     private let lock = NSRecursiveLock()
     public private(set) var state: State = .idle
+    /// Shift was held as the recording started: edit the last dictation rather than add one.
+    public private(set) var startedWithShift = false
     private var lastPress = 0.0
     private var pressStartedAt: Double?
     private var triggerDown = false
@@ -94,6 +96,7 @@ public final class InputStateMachine: @unchecked Sendable {
     // MARK: - Transitions (lock held)
 
     private func start() {
+        startedWithShift = shiftDown
         awaitingSecondTap = false
         cancel(&pendingStop)
         state = .recording

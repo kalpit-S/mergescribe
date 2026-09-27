@@ -18,25 +18,33 @@ final class App: NSObject, NSApplicationDelegate {
     var input: InputStateMachine!
     var hotkey: Hotkey?
     var current: Session?
+    var live: LiveWords?
+    /// The latest dictations, newest first: for the menu, and for editing the last one.
+    var recent: [(text: String, app: String, window: String, at: Date, inPlace: Bool)] = []
+    var recentMenu: NSMenu!
     let ducker = Ducker(output: CoreAudioOutput())
     var statusItem: NSStatusItem!
     var statusLine: NSMenuItem!
     var hud: HUD!
+    let textOutput = MacTextOutput()
     lazy var settingsWindow = SettingsWindowController(http: http)
 
     /// The recognizers the settings ask for. Built per recording, so a change in Settings
     /// applies to the next dictation and never swaps a running session's set under it.
     nonisolated static func recognizers(for settings: Settings, http: HTTPClient, vocabulary: VocabularyStore) -> [Recognizer] {
         var out: [Recognizer] = []
-        for name in settings.enabledProviders where name != "parakeet" {
+        for name in settings.enabledProviders where name != "parakeet" && name != AppleProvider.name {
             Log.line("  Unknown or unconfigured provider: \(name)")
         }
         if settings.enabledProviders.contains("parakeet") {
             Log.line("  Parakeet (local) isn't in the Swift build yet; using the cloud recognizers")
         }
+        let learn = settings.learnVocabulary
+        if settings.enabledProviders.contains(AppleProvider.name), #available(macOS 26.0, *) {
+            out.append(AppleRecognizer(sampleRate: settings.sampleRate, vocabulary: { learn ? vocabulary.knownTerms() : [] }))
+        }
         guard !settings.openrouterApiKey.isEmpty else { return out }
         let client = TranscriptionClient(http: http)
-        let learn = settings.learnVocabulary
         for model in settings.openrouterSttModels {
             out.append(OpenRouterRecognizer(model: model, key: settings.openrouterApiKey, client: client,
                                             sampleRate: settings.sampleRate,
@@ -57,20 +65,31 @@ final class App: NSObject, NSApplicationDelegate {
         let engine = audio!
         hud = HUD(enabled: settings.hudEnabled, level: { engine.level })
 
+        textOutput.viaAccessibility.update { $0 = settings.insertViaAccessibility }
         let training = settings.trainingEnabled ? TrainingWriter(directory: paths.trainingDir, sampleRate: settings.sampleRate) : nil
         let services = SessionServices(
-            focus: MacFocus(), output: MacTextOutput(),
+            focus: MacFocus(), output: textOutput,
             corrector: CorrectionClient(http: http, vocabulary: vocabulary), judge: JudgeClient(http: http),
             editWatcher: MacEditWatcher(), metrics: metrics, training: training,
             corpus: CorrectionsCorpus(url: paths.correctionsFile), observer: hud)
         manager = SessionManager(services: services)
-        manager.onSessionComplete = { [weak self] _, newest in
-            guard newest else { return }
-            DispatchQueue.main.async { self?.setStatus(.idle) }
+        manager.onSessionComplete = { [weak self] session, newest in
+            let (text, method, _) = session.outcome
+            let context = session.context
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    if !text.isEmpty { self.remember(text, context: context, inPlace: method != "clipboard") }
+                    if newest { self.setStatus(.idle) }
+                }
+            }
         }
 
         Log.line("  Active mics: \(audio.apply(settings))")
         audio.startMonitoring()
+
+        hud.setLiveWords(settings.liveWords)
+        if settings.liveWords, #available(macOS 26.0, *) { LiveTranscriber.warmUp(sampleRate: settings.sampleRate) }
 
         input = InputStateMachine(doubleTapThreshold: settings.doubleTapThreshold,
                                   toggleTimeout: Double(settings.toggleModeTimeout),
@@ -108,6 +127,8 @@ final class App: NSObject, NSApplicationDelegate {
         let before = settings
         settings = Settings.load(paths: paths, log: { _ in })
         hud.setEnabled(settings.hudEnabled)
+        hud.setLiveWords(settings.liveWords && settings.hudEnabled)
+        textOutput.viaAccessibility.update { $0 = settings.insertViaAccessibility }
         if settings.triggerKey != before.triggerKey { startHotkey() }
         if settings.enabledMics != before.enabledMics, current == nil { audio.apply(settings) }
         setStatus(current == nil ? .idle : .recording)
@@ -122,6 +143,7 @@ final class App: NSObject, NSApplicationDelegate {
         }
         settings = Settings.load(paths: paths)
         hud.setEnabled(settings.hudEnabled)
+        hud.setLiveWords(settings.liveWords && settings.hudEnabled)
         input.doubleTapThreshold = settings.doubleTapThreshold
         input.toggleTimeout = Double(settings.toggleModeTimeout)
         let mics = audio.apply(settings)
@@ -132,11 +154,33 @@ final class App: NSObject, NSApplicationDelegate {
                 ? "Add an OpenRouter key in Settings > Models to transcribe"
                 : "Turn on a transcription model in Settings > Models (Parakeet isn't in this build yet)")
         }
+        // Shift + trigger: select the last dictation first, and what is said becomes an edit
+        // instruction for it (the selection sends the session into edit mode).
+        if input.startedWithShift {
+            let focus = MacFocus()
+            guard let last = recent.first(where: { $0.inPlace }), Date().timeIntervalSince(last.at) < 600,
+                  focus.appContext()?.appName == last.app, focus.selectBeforeCaret(last.text) else {
+                NSSound(named: "Funk")?.play()
+                Log.line("[Edit] No recent dictation at the cursor to edit")
+                return
+            }
+            Log.line("[Edit] Selected the last dictation to edit it")
+        }
         guard let session = manager.startSession(settings: settings, recognizers: recognizers) else { return }
         current = session
         // Capture first, then let the session gather context: the press-to-record gap is
         // what the user feels.
-        audio.startRecording(onChunk: { session.chunkReady($0) })
+        var onBlock: (([Float]) -> Void)?
+        if settings.liveWords && settings.hudEnabled {
+            let words = LiveWords()
+            live = words
+            let hud = hud!, sid = session.id.uuidString.lowercased()
+            words.start(sampleRate: settings.sampleRate, vocabulary: settings.learnVocabulary ? vocabulary.knownTerms() : []) { text in
+                hud.liveText(session: sid, text: text)
+            }
+            onBlock = { words.append($0) }
+        }
+        audio.startRecording(onChunk: { session.chunkReady($0) }, onBlock: onBlock)
         setStatus(.recording)
         if settings.duckWhileRecording { ducker.duck() }
         session.start(mics: mics)
@@ -146,11 +190,52 @@ final class App: NSObject, NSApplicationDelegate {
     func stopRecording() {
         guard let session = current else { return }
         let final = audio.stopRecording()
+        live?.stop()
+        live = nil
         ducker.restore()
         setStatus(.processing)
         session.finalize(final)
         current = nil
         metrics.log("recording_stopped", ["session_id": .string(session.id.uuidString.lowercased())])
+    }
+
+    func remember(_ text: String, context: AppContext?, inPlace: Bool) {
+        recent.insert((text.trimmingCharacters(in: .whitespacesAndNewlines), context?.appName ?? "", context?.windowTitle ?? "",
+                       Date(), inPlace), at: 0)
+        if recent.count > 10 { recent.removeLast(recent.count - 10) }
+        rebuildRecentMenu()
+    }
+
+    /// Recent dictations: click one to copy it again.
+    func rebuildRecentMenu() {
+        recentMenu.removeAllItems()
+        if recent.isEmpty {
+            recentMenu.addItem(withTitle: "Nothing yet", action: nil, keyEquivalent: "")
+            return
+        }
+        let relative = RelativeDateTimeFormatter()
+        relative.unitsStyle = .short
+        for (index, entry) in recent.enumerated() {
+            let title = entry.text.count > 60 ? String(entry.text.prefix(57)) + "…" : entry.text
+            let item = NSMenuItem(title: title, action: #selector(copyRecent(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            item.toolTip = entry.text
+            let detail = [entry.app, relative.localizedString(for: entry.at, relativeTo: Date())].filter { !$0.isEmpty }
+            if #available(macOS 14.4, *) { item.subtitle = detail.joined(separator: " · ") }
+            recentMenu.addItem(item)
+        }
+        recentMenu.addItem(.separator())
+        recentMenu.addItem(withTitle: "Shift + \(Self.keyName(settings.triggerKey)) edits the last one", action: nil, keyEquivalent: "")
+    }
+
+    @objc func copyRecent(_ item: NSMenuItem) {
+        guard item.tag < recent.count else { return }
+        textOutput.copyToClipboard(recent[item.tag].text)
+    }
+
+    static func keyName(_ key: String) -> String {
+        ["cmd_r": "Right Command", "alt_r": "Right Option", "alt_l": "Left Option", "ctrl_r": "Right Control"][key] ?? key.uppercased()
     }
 
     func showError(_ message: String) {
@@ -166,6 +251,12 @@ final class App: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         statusLine = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
         menu.addItem(statusLine)
+        menu.addItem(.separator())
+        let recentItem = NSMenuItem(title: "Recent Dictations", action: nil, keyEquivalent: "")
+        recentMenu = NSMenu(title: "Recent Dictations")
+        recentItem.submenu = recentMenu
+        menu.addItem(recentItem)
+        rebuildRecentMenu()
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "Open Log", action: #selector(openLog), keyEquivalent: "").target = self

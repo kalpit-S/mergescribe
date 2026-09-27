@@ -34,6 +34,12 @@ public protocol Focus: Sendable {
     /// Ask the frontmost app to build its accessibility tree, so the edit watcher can read
     /// the field later (Chromium and Electron keep an empty one until asked).
     func wakeFrontmostApp()
+    /// Select `text` if it sits just before the cursor. False when it can't be found there.
+    func selectBeforeCaret(_ text: String) -> Bool
+}
+
+public extension Focus {
+    func selectBeforeCaret(_ text: String) -> Bool { false }
 }
 
 /// Keystrokes, the clipboard, notifications and sounds.

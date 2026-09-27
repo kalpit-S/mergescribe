@@ -278,3 +278,110 @@ public final class MacEditWatcher: EditWatching, @unchecked Sendable {
         return (successor, value)
     }
 }
+
+extension MacFocus {
+    /// Select `text` where it ends at the cursor: through accessibility when the field
+    /// exposes its value, so the selection is checked against what is really there; with
+    /// Shift+Left otherwise, which selects the right text as long as nothing moved the cursor.
+    public func selectBeforeCaret(_ text: String) -> Bool {
+        let wanted = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !wanted.isEmpty else { return false }
+        if let field = AX.focused(), let value = AX.string(field, kAXValueAttribute),
+           let rangeValue = AX.get(field, kAXSelectedTextRangeAttribute), CFGetTypeID(rangeValue) == AXValueGetTypeID() {
+            var caret = CFRange()
+            if AXValueGetValue(rangeValue as! AXValue, .cfRange, &caret) {
+                let string = value as NSString, end = caret.location + caret.length
+                // The dictation, ending at the cursor (trailing spaces aside).
+                var stop = min(end, string.length)
+                while stop > 0, string.character(at: stop - 1) == 0x20 { stop -= 1 }
+                let found = string.range(of: wanted, options: [.backwards], range: NSRange(location: 0, length: stop))
+                // The field can be read and the dictation isn't at the cursor: the text was
+                // edited or the cursor moved, so selecting blindly would take the wrong words.
+                guard found.location != NSNotFound, found.location + found.length == stop else { return false }
+                var range = CFRange(location: found.location, length: found.length)
+                if let axRange = AXValueCreate(.cfRange, &range) {
+                    AX.set(field, kAXSelectedTextRangeAttribute, axRange)
+                    if AX.string(field, kAXSelectedTextAttribute) == wanted { return true }
+                }
+            }
+        }
+        // Keystrokes: one Shift+Left per character.
+        let source = CGEventSource(stateID: .privateState)
+        for _ in 0..<wanted.count {
+            guard let down = CGEvent(keyboardEventSource: source, virtualKey: 123, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: 123, keyDown: false) else { return false }
+            down.flags = .maskShift
+            up.flags = .maskShift
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+            usleep(1_500)
+        }
+        usleep(80_000)      // let the app catch up before the selection is read
+        return true
+    }
+}
+
+/// Text put into the focused field through accessibility: one exact, instant insertion
+/// rather than a stream of synthetic keystrokes an app can drop or reorder.
+///
+/// Native text fields only. In a web page (browsers, Electron apps) the page's own input
+/// handling wouldn't see the text, and a React composer can show words it doesn't count as
+/// typed, so those keep keystrokes. Every insertion is checked: the field must have grown
+/// by exactly the text, or nothing happened and the caller types it instead.
+public enum AXInsert {
+    /// Per app: whether insertion works there, learned from the first try.
+    private static let verdicts = Locked<[pid_t: Bool]>([:])
+
+    public static func insert(_ text: String) -> Bool {
+        guard AX.trusted, !text.isEmpty, let field = AX.focused(), let pid = AX.pid(field) else { return false }
+        if verdicts.current[pid] == false { return false }
+        guard !inWebArea(field) else { verdicts.update { $0[pid] = false }; return false }
+        var settable = DarwinBoolean(false)
+        guard AXUIElementIsAttributeSettable(field, kAXSelectedTextAttribute as CFString, &settable) == .success,
+              settable.boolValue,
+              let before = count(field), let caret = selection(field), caret.length == 0 else { return false }
+        guard AXUIElementSetAttributeValue(field, kAXSelectedTextAttribute as CFString, text as CFString) == .success,
+              let after = count(field) else { return false }
+        let units = (text as NSString).length
+        guard after == before + units else {
+            if after == before {
+                // Nothing went in: this app doesn't take it. Type this and everything after.
+                Log.line("[Output] Accessibility insertion doesn't work here; typing instead")
+                verdicts.update { $0[pid] = false }
+                return false
+            }
+            return true     // something went in (the app reshaped it): don't type it twice
+        }
+        // Some fields leave the cursor before what was inserted; the next piece must follow it.
+        if let now = selection(field), now.location != caret.location + units {
+            var end = CFRange(location: caret.location + units, length: 0)
+            if let value = AXValueCreate(.cfRange, &end) { AX.set(field, kAXSelectedTextRangeAttribute, value) }
+        }
+        if verdicts.current[pid] == nil {
+            verdicts.update { $0[pid] = true }
+            Log.line("[Output] Inserting through accessibility here")
+        }
+        return true
+    }
+
+    static func count(_ field: AXUIElement) -> Int? {
+        (AX.get(field, kAXNumberOfCharactersAttribute) as? NSNumber)?.intValue
+    }
+
+    static func selection(_ field: AXUIElement) -> CFRange? {
+        guard let value = AX.get(field, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        var range = CFRange()
+        return AXValueGetValue(value as! AXValue, .cfRange, &range) ? range : nil
+    }
+
+    /// Inside web content: an AXWebArea somewhere above.
+    static func inWebArea(_ element: AXUIElement) -> Bool {
+        var current: AXUIElement? = element
+        for _ in 0..<25 {
+            guard let node = current else { return false }
+            if AX.string(node, kAXRoleAttribute) == "AXWebArea" { return true }
+            current = AX.element(node, kAXParentAttribute)
+        }
+        return false
+    }
+}

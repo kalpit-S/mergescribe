@@ -33,6 +33,9 @@ public struct Settings: Sendable, Equatable {
     /// sentence boundaries without cutting the frequent sub-second thinking pauses.
     public var silenceThreshold: Double = 1.2
     public var sampleRate: Int = 16000
+    /// Keep the microphones open between dictations. Pre-roll (the second before the press)
+    /// needs it; off, a microphone opens when the key goes down and the indicator goes away.
+    public var keepMicOpen = false
     public var chunkOnSilence = true
     public var adaptiveThresholdEnabled = true
     public var speechHeadroomDb: Double = 12.0
@@ -81,10 +84,16 @@ public struct Settings: Sendable, Equatable {
 
     // While recording
     public var hudEnabled = true
+    /// Apple's on-device recognizer listens along and puts your words on the HUD as you say
+    /// them. Display only: what gets typed still comes from the ensemble and the correction.
+    public var liveWords = true
     /// Lower the system output while recording, when it plays through speakers.
     public var duckWhileRecording = true
     /// A leading space when continuing a recent dictation into the same destination.
     public var spaceBetweenDictations = true
+    /// Put text into native text fields through accessibility (exact and instant) instead of
+    /// synthetic keystrokes. Web pages and Electron apps always get keystrokes.
+    public var insertViaAccessibility = true
 
     /// From ~/.mergescribe/.env or the environment; never written to settings.json.
     public var openrouterApiKey = ""
@@ -190,6 +199,7 @@ extension Settings {
         .double("preroll_seconds", \.prerollSeconds),
         .double("silence_threshold", \.silenceThreshold),
         .int("sample_rate", \.sampleRate),
+        .bool("keep_mic_open", \.keepMicOpen),
         .bool("chunk_on_silence", \.chunkOnSilence),
         .bool("adaptive_threshold_enabled", \.adaptiveThresholdEnabled),
         .double("speech_headroom_db", \.speechHeadroomDb),
@@ -217,8 +227,10 @@ extension Settings {
         .bool("edit_feedback_enabled", \.editFeedbackEnabled),
         .bool("learn_vocabulary", \.learnVocabulary),
         .bool("hud_enabled", \.hudEnabled),
+        .bool("live_words", \.liveWords),
         .bool("duck_while_recording", \.duckWhileRecording),
         .bool("space_between_dictations", \.spaceBetweenDictations),
+        .bool("insert_via_accessibility", \.insertViaAccessibility),
     ]
 }
 

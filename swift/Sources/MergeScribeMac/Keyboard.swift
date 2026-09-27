@@ -14,12 +14,17 @@ public final class MacTextOutput: TextOutput, @unchecked Sendable {
     /// Our own event source, so a modifier the user is holding can't turn text into shortcuts.
     private let source = CGEventSource(stateID: .privateState)
 
-    public init() {}
-
     /// Type at the cursor with synthetic unicode key events. Called once per streamed token,
     /// so it must cost microseconds, not a process launch. Whatever can't be typed goes to
     /// the clipboard: retyping the whole text another way would repeat what already went in.
+    /// Insert through accessibility where the field takes it (native text fields); keystrokes
+    /// everywhere else.
+    public let viaAccessibility: Locked<Bool>
+
+    public init(viaAccessibility: Bool = true) { self.viaAccessibility = Locked(viaAccessibility) }
+
     public func type(_ text: String) {
+        if viaAccessibility.current && AXInsert.insert(text) { return }
         let characters = Array(text)
         var start = 0
         while start < characters.count {

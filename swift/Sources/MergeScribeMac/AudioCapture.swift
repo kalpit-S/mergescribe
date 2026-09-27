@@ -38,8 +38,17 @@ final class MicCapture: @unchecked Sendable {
     }
 
     var isRunning: Bool { engine.isRunning }
+    private var tapped = false
 
     func start() throws {
+        if engine.isRunning { return }
+        if tapped {
+            // Stopped between dictations: the tap and converter are still in place.
+            pending.removeAll()
+            engine.prepare()
+            try engine.start()
+            return
+        }
         let input = engine.inputNode
         // The input node records the default device unless its I/O unit is pointed elsewhere.
         guard let unit = input.audioUnit else { throw CaptureError.noAudioUnit }
@@ -72,6 +81,7 @@ final class MicCapture: @unchecked Sendable {
             guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { return }
             self.append(Array(UnsafeBufferPointer(start: data, count: Int(out.frameLength))), heardAt: heard)
         }
+        tapped = true
         engine.prepare()
         try engine.start()
     }
@@ -89,8 +99,14 @@ final class MicCapture: @unchecked Sendable {
         }
     }
 
+    /// Stop listening, keeping the tap for the next start.
+    func pause() {
+        engine.stop()
+    }
+
     func stop() {
-        engine.inputNode.removeTap(onBus: 0)
+        if tapped { engine.inputNode.removeTap(onBus: 0) }
+        tapped = false
         engine.stop()
     }
 
@@ -107,12 +123,18 @@ public final class AudioEngine: @unchecked Sendable {
     private let devices = DispatchQueue(label: "mergescribe.audio.devices")
     private var chunker: Chunker                  // processing queue only
     private var onChunk: ((AudioChunk) -> Void)?  // processing queue only
+    private var onBlock: (([Float]) -> Void)?     // processing queue only: the primary mic, while recording
     private let captures = Locked<[String: MicCapture]>([:])
     private let recording = Locked(false)
     private let currentLevel = Locked(0.0)
     private let sampleRate: Locked<Int>
     private var monitor: DispatchSourceTimer?
     private var wanted: [String] = []
+    /// Microphones open between dictations (for pre-roll), or only while recording.
+    private let keepOpen = Locked(false)
+    /// When the key went down with the microphones closed, to log how long they took to open.
+    private var openedAt: Double?          // processing queue only
+    private var heardSinceOpen: Set<String> = []
 
     public init(settings: Settings) {
         chunker = Chunker(config: Chunker.Config(settings))
@@ -131,6 +153,11 @@ public final class AudioEngine: @unchecked Sendable {
     public func apply(_ settings: Settings) -> [String] {
         guard !recording.current else { return activeMics }
         processing.sync { chunker.config = Chunker.Config(settings) }
+        let wasOpen = keepOpen.current
+        keepOpen.update { $0 = settings.keepMicOpen }
+        if wasOpen && !settings.keepMicOpen {
+            devices.sync { for capture in captures.current.values { capture.pause() } }
+        }
         if settings.sampleRate != sampleRate.current {
             // Captures convert to one rate; a new rate means new captures.
             sampleRate.update { $0 = settings.sampleRate }
@@ -160,9 +187,10 @@ public final class AudioEngine: @unchecked Sendable {
     private func syncDevicesOnQueue() {
         guard !recording.current else { return }
         let available = CoreAudioDevices.inputDevices()
+        let shouldRun = keepOpen.current
         for (name, capture) in captures.current {
             let unwanted = !wanted.contains(name)
-            let dead = !capture.isRunning || !available.contains { $0.id == capture.device.id }
+            let dead = (shouldRun && !capture.isRunning) || !available.contains { $0.id == capture.device.id }
             if unwanted || dead {
                 Log.line(unwanted ? "[Audio] Mic disabled in settings: \(name)" : "[Audio] Mic disconnected: \(name)")
                 capture.stop()
@@ -178,9 +206,9 @@ public final class AudioEngine: @unchecked Sendable {
             }
             do {
                 processing.sync { chunker.addMic(name) }
-                try capture.start()
+                if shouldRun { try capture.start() }
                 captures.update { $0[name] = capture }
-                Log.line("[Audio] Mic connected: \(name) (\(device.name))")
+                Log.line("[Audio] Mic \(shouldRun ? "connected" : "ready"): \(name) (\(device.name))")
             } catch {
                 processing.sync { chunker.removeMic(name) }
                 Log.line("[Audio] Failed to open \(name): \(error)")
@@ -191,13 +219,24 @@ public final class AudioEngine: @unchecked Sendable {
     // MARK: - Recording (any thread)
 
     /// Begin a recording. Chunks emitted on pauses go to `onChunk` on the audio queue.
-    public func startRecording(onChunk: @escaping (AudioChunk) -> Void) {
+    public func startRecording(onChunk: @escaping (AudioChunk) -> Void, onBlock: (([Float]) -> Void)? = nil) {
         recording.update { $0 = true }
         let now = HostClock.now
+        let open = keepOpen.current
         processing.sync {
             self.onChunk = onChunk
+            self.onBlock = onBlock
             chunker.startRecording(now: now)
+            openedAt = open ? nil : now
+            heardSinceOpen = []
             drainMessages()
+        }
+        guard !open else { return }
+        // Opened now, off the main thread; blocks arrive on the audio queue as they are heard.
+        devices.async { [self] in
+            for (name, capture) in captures.current {
+                do { try capture.start() } catch { Log.line("[Audio] Couldn't open \(name): \(error)") }
+            }
         }
     }
 
@@ -205,11 +244,15 @@ public final class AudioEngine: @unchecked Sendable {
     public func stopRecording() -> FinalChunk {
         let final = processing.sync { () -> FinalChunk in
             onChunk = nil
+            onBlock = nil
             let final = chunker.stopRecording()
             drainMessages()
             return final
         }
         recording.update { $0 = false }
+        if !keepOpen.current {
+            devices.async { [self] in for capture in captures.current.values { capture.pause() } }
+        }
         return final
     }
 
@@ -222,7 +265,14 @@ public final class AudioEngine: @unchecked Sendable {
     // MARK: - Audio queue
 
     private func feed(_ mic: String, _ block: [Float], _ heard: Double) {
+        if let opened = openedAt, !heardSinceOpen.contains(mic) {
+            heardSinceOpen.insert(mic)
+            // The block's stamp is its end; its start is when the microphone began hearing.
+            let listening = heard - Double(block.count) / Double(sampleRate.current) - opened
+            Log.line("[Audio] \(mic) listening \(Int((listening * 1000).rounded()))ms after the press")
+        }
         let chunk = chunker.feed(mic, block, now: heard)
+        if chunker.isRecording, mic == chunker.primaryMic, let onBlock { onBlock(block) }
         currentLevel.update { $0 = chunker.level }
         drainMessages()
         if let chunk, let onChunk { onChunk(chunk) }

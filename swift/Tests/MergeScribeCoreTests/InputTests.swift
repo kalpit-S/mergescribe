@@ -100,6 +100,16 @@ private func machine(threshold: Double, toggleTimeout: Double = 5) -> (InputStat
         #expect(events.all == ["start"])
     }
 
+    @Test func shiftHeldAtThePressIsRemembered() {
+        // Shift + trigger edits the last dictation instead of adding one.
+        let (m, time, _) = machine(threshold: 0.05)
+        m.shift(down: true); m.triggerPressed(); m.shift(down: false)
+        #expect(m.startedWithShift)
+        time.advance(0.1); m.triggerReleased()
+        m.triggerPressed()
+        #expect(!m.startedWithShift)
+    }
+
     @Test func shiftEscapeStopsEverything() {
         let (m, time, events) = machine(threshold: 0.5)
         m.triggerPressed(); m.triggerReleased(); time.advance(0.1)
