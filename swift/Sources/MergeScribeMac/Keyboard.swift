@@ -47,12 +47,12 @@ public final class MacTextOutput: TextOutput, @unchecked Sendable {
         notify("Couldn't type everything - the rest is on the clipboard")
     }
 
+    /// Straight to the pasteboard from whichever thread: hopping to the main thread and
+    /// waiting could deadlock against a main thread that is itself waiting on the session.
     public func copyToClipboard(_ text: String) {
         guard !text.isEmpty else { return }
-        DispatchQueue.main.sync(execute: {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-        }, ifNotMain: true)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     public func notify(_ message: String) {
@@ -61,13 +61,6 @@ public final class MacTextOutput: TextOutput, @unchecked Sendable {
 
     public func playBusySound() {
         DispatchQueue.main.async { NSSound(named: "Basso")?.play() }
-    }
-}
-
-extension DispatchQueue {
-    /// Run on the main queue, synchronously, without deadlocking when already on it.
-    func sync(execute work: () -> Void, ifNotMain: Bool) {
-        if Thread.isMainThread { work() } else { DispatchQueue.main.sync(execute: work) }
     }
 }
 
@@ -139,7 +132,7 @@ public final class Hotkey: @unchecked Sendable {
             | (1 << CGEventType.flagsChanged.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             let hotkey = Unmanaged<Hotkey>.fromOpaque(refcon!).takeUnretainedValue()
-            hotkey.handle(type, event)
+            hotkey.receive(type, event)
             return Unmanaged.passUnretained(event)
         }
         guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
@@ -161,14 +154,23 @@ public final class Hotkey: @unchecked Sendable {
         source = nil
     }
 
-    func handle(_ type: CGEventType, _ event: CGEvent) {
-        switch type {
-        case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            // macOS switches a tap off when it is slow or on secure input; switch it back on.
+    /// In the tap's callback, which must return quickly: macOS switches off a tap that keeps
+    /// it waiting, and starting a recording can take a moment. Read what is needed from the
+    /// event and handle it just after.
+    func receive(_ type: CGEventType, _ event: CGEvent) {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            // macOS switched the tap off (it was slow, or secure input was on); switch it back on.
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return
+        }
+        let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        let flags = event.flags.rawValue
+        DispatchQueue.main.async { [self] in handle(type, code: code, flags: flags) }
+    }
+
+    func handle(_ type: CGEventType, code: CGKeyCode, flags: UInt64) {
+        switch type {
         case .flagsChanged:
-            let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-            let flags = event.flags.rawValue
             if Self.shiftCodes.contains(code) {
                 machine.shift(down: flags & (0x02 | 0x04) != 0)
             }
@@ -176,11 +178,9 @@ public final class Hotkey: @unchecked Sendable {
                 if flags & bit != 0 { machine.triggerPressed() } else { machine.triggerReleased() }
             }
         case .keyDown:
-            let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             if code == trigger.code && trigger.modifierBit == nil { machine.triggerPressed() }
             if code == Self.escape { machine.escapePressed() }
         case .keyUp:
-            let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             if code == trigger.code && trigger.modifierBit == nil { machine.triggerReleased() }
         default:
             break
