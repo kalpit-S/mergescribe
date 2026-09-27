@@ -21,6 +21,7 @@ final class App: NSObject, NSApplicationDelegate {
     let ducker = Ducker(output: CoreAudioOutput())
     var statusItem: NSStatusItem!
     var statusLine: NSMenuItem!
+    var hud: HUD!
 
     /// The recognizers the settings ask for. Built per recording, so a change in Settings
     /// applies to the next dictation and never swaps a running session's set under it.
@@ -50,19 +51,23 @@ final class App: NSObject, NSApplicationDelegate {
         Log.line("  Transcription: \(settings.openrouterSttModels)")
         Notifications.requestPermission()
 
+        audio = AudioEngine(settings: settings)
+        // The HUD reads the live mic level straight off the audio engine.
+        let engine = audio!
+        hud = HUD(enabled: settings.hudEnabled, level: { engine.level })
+
         let training = settings.trainingEnabled ? TrainingWriter(directory: paths.trainingDir, sampleRate: settings.sampleRate) : nil
         let services = SessionServices(
             focus: MacFocus(), output: MacTextOutput(),
             corrector: CorrectionClient(http: http, vocabulary: vocabulary), judge: JudgeClient(http: http),
             editWatcher: MacEditWatcher(), metrics: metrics, training: training,
-            corpus: CorrectionsCorpus(url: paths.correctionsFile), observer: nil)
+            corpus: CorrectionsCorpus(url: paths.correctionsFile), observer: hud)
         manager = SessionManager(services: services)
         manager.onSessionComplete = { [weak self] _, newest in
             guard newest else { return }
             DispatchQueue.main.async { self?.setStatus(.idle) }
         }
 
-        audio = AudioEngine(settings: settings)
         Log.line("  Active mics: \(audio.apply(settings))")
         audio.startMonitoring()
 
@@ -101,6 +106,7 @@ final class App: NSObject, NSApplicationDelegate {
             return
         }
         settings = Settings.load(paths: paths)
+        hud.setEnabled(settings.hudEnabled)
         input.doubleTapThreshold = settings.doubleTapThreshold
         input.toggleTimeout = Double(settings.toggleModeTimeout)
         let mics = audio.apply(settings)
@@ -148,7 +154,11 @@ final class App: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
 
+    /// Show recording state in exactly one place: the HUD sits where you are looking, so while
+    /// it is on the menu bar icon stays put; if it is off, the icon takes the job back.
     func setStatus(_ status: Status) {
+        hud?.setStatus(status.rawValue)
+        let status = hud?.isShowing == true && status != .error ? .idle : status
         let symbols: [Status: String] = [.idle: "waveform", .recording: "waveform.circle.fill",
                                          .processing: "ellipsis.circle", .error: "exclamationmark.triangle"]
         let image = NSImage(systemSymbolName: symbols[status]!, accessibilityDescription: "MergeScribe")?

@@ -106,7 +106,7 @@ func wrapAngle(_ angle: Double) -> Double {
 /// as its final result lands, or fades if it is dropped; when every stream is in, the pulse
 /// starts, and each word the correction types sends light along the line and through the words.
 public final class HUDAnimation {
-    static let visibleStatuses: Set<String> = ["recording", "processing"]
+    public static let visibleStatuses: Set<String> = ["recording", "processing"]
     static let maxStep = 1.0 / 20           // a stalled main thread shouldn't fling the springs
     /// Each strand drifts at its own speed, alternate ones the other way.
     static let strandSpeeds = [5.3, -4.1, 6.4, -5.6]
