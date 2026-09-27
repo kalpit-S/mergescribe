@@ -121,6 +121,77 @@ def feedback():
     return {"classify": cases, "gone": list(gone), "anchor": anchors}
 
 
+def result(text, provider, mic="m", chunk=0):
+    from mergescribe.types import TranscriptionResult
+    return TranscriptionResult(text=text, provider=provider, mic=mic, latency_ms=0, chunk=chunk)
+
+
+def prompts():
+    from unittest.mock import Mock, patch
+    from mergescribe.correct import DEFAULT_EDITING_PROMPT, DEFAULT_SYSTEM_CONTEXT, _build_prompt, build_system_prompt
+    from mergescribe.types import AppContext, ConfigSnapshot
+
+    slack = AppContext(app_name="Slack", window_title="general - Acme - Slack", bundle_id="com.tinyspeck.slackmacgap")
+    notitle = AppContext(app_name="Notes", window_title="", bundle_id="com.apple.Notes")
+    inputs = [
+        ([result("ship it friday", "a")], None),
+        ([result("ship it friday", "a"), result("Ship it Friday.", "b"), result("ship it  friday", "c", "m2")], slack),
+        ([result("part two", "a", chunk=2), result("ship it", "a", chunk=1), result("ship it", "b", chunk=1),
+          result("ship it", "a", chunk=3), result("", "b", chunk=3)], notitle),
+        ([result("Ça marche 🚀", "a"), result("ça marche", "b")], slack),
+    ]
+    built = [{"results": [{"text": r.text, "provider": r.provider, "mic": r.mic, "chunk": r.chunk} for r in rs],
+              "context": None if c is None else {"app_name": c.app_name, "window_title": c.window_title, "bundle_id": c.bundle_id},
+              "prompt": _build_prompt([r for r in rs if r.text.strip()], c)} for rs, c in inputs]
+
+    systems = []
+    for custom_prompt, instructions, learn in [("", "", False), ("", "In Slack, write in lowercase.", True),
+                                               ("Translate to Spanish.", "", True)]:
+        config = Mock(spec=ConfigSnapshot)
+        config.system_prompt = custom_prompt
+        config.learn_vocabulary = learn
+        with patch("mergescribe.vocabulary.learned_corrections", return_value=[(["cloud", "Claud"], "Claude", 2)]), \
+             patch("mergescribe.vocabulary.supplied_terms", return_value=["Postgres", "Kubernetes operator"]):
+            systems.append({"system_prompt": custom_prompt, "custom_instructions": instructions, "learn": learn,
+                            "learned": [[["cloud", "Claud"], "Claude", 2]], "supplied": ["Postgres", "Kubernetes operator"],
+                            "built": build_system_prompt(config, instructions)})
+    return {"default_system": DEFAULT_SYSTEM_CONTEXT, "default_editing": DEFAULT_EDITING_PROMPT,
+            "prompts": built, "systems": systems}
+
+
+def judge():
+    from mergescribe.judge import LIMIT, decide, destination, questions
+    from mergescribe.types import AppContext
+
+    slack = AppContext(app_name="Slack", window_title="general - Acme - Slack", bundle_id="x")
+    asked = []
+    for count, prefs, context in [(1, "", None), (3, "", None), (2, "In Slack, lowercase.", slack),
+                                  (1, "Be formal.", AppContext(app_name="Notes", window_title="", bundle_id="y")),
+                                  (1, "Be formal.", None)]:
+        asked.append({"count": count, "preferences": prefs,
+                      "context": None if context is None else {"app_name": context.app_name,
+                                                               "window_title": context.window_title,
+                                                               "bundle_id": context.bundle_id},
+                      "questions": questions(count, prefs, context)})
+    rng = random.Random(3)
+    decisions = []
+    for n in range(200):
+        count = rng.randint(1, 3)
+        with_prefs = rng.random() < 0.5
+        probabilities = {str(i): rng.random() for i in range(count)}
+        probabilities["none"] = rng.random() * 0.6
+        if rng.random() < 0.15:
+            probabilities = {}
+        answers = {"best": {"choice": rng.choice([str(i) for i in range(count)] + ["none", "7"]),
+                            "probabilities": probabilities}}
+        for i in range(count):
+            for job in ["filler", "restart", "misheard", "punct"] + (["prefs"] if with_prefs else []):
+                answers[f"{job}_{i}"] = {"noul": round(rng.random() ** 3, 3)}
+        clean, pick, scores = decide(answers, count)
+        decisions.append({"count": count, "answers": answers, "clean": clean, "pick": pick, "scores": scores})
+    return {"limit": LIMIT, "questions": asked, "decisions": decisions}
+
+
 def write(name, data):
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=1))
@@ -130,3 +201,5 @@ def write(name, data):
 if __name__ == "__main__":
     write("sequence_matcher", sequence_matcher())
     write("feedback", feedback())
+    write("prompts", prompts())
+    write("judge", judge())

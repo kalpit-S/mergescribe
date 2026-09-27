@@ -1,0 +1,170 @@
+{
+ "default_system": "Turn this speech-to-text transcript into the message the speaker would have typed if they had written it themselves.\n\nTyped text drops the scaffolding of speech: filler sounds, filler words that carry no meaning (\"like\", \"you know\", \"I mean\", \"kind of\", \"basically\"), stutters, repeats, and false starts. When the speaker corrects themselves, keep only the version they settled on. When the speaker calls something off with \"scratch that\" or \"never mind\", drop it along with what it cancels; anything they say after still stands. Reply with exactly [nothing] only if nothing at all is left.\n\nEverything else is theirs. Keep their words, slang, tone, and phrasing, and never add words they didn't say. Fix punctuation, grammar, and clear mishearings; when several transcriptions of the same audio are given, use them together to work out what was said. Recognizers often drop or swap short words like \"not\", \"never\" and \"no\" (\"no reason\" heard as \"a reason\"), so if any transcription has a negation the others lack, keep it: losing one reverses the meaning. Unfamiliar names are usually real products, people, or jargon, so keep them. When unsure, keep what was said.\n\nNever use an em dash or en dash. Where the speaker breaks off, restarts or changes course, end the sentence there or use a comma, as a person typing would.\n\nReturn only the cleaned text, as one continuous line with no line breaks, markdown, or commentary.",
+ "default_editing": "You are a text editing assistant. Apply the user's requested change precisely and return only the edited text.",
+ "prompts": [
+  {
+   "results": [
+    {
+     "text": "ship it friday",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 0
+    }
+   ],
+   "context": null,
+   "prompt": "Transcriptions:\n[a/m]: ship it friday"
+  },
+  {
+   "results": [
+    {
+     "text": "ship it friday",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 0
+    },
+    {
+     "text": "Ship it Friday.",
+     "provider": "b",
+     "mic": "m",
+     "chunk": 0
+    },
+    {
+     "text": "ship it  friday",
+     "provider": "c",
+     "mic": "m2",
+     "chunk": 0
+    }
+   ],
+   "context": {
+    "app_name": "Slack",
+    "window_title": "general - Acme - Slack",
+    "bundle_id": "com.tinyspeck.slackmacgap"
+   },
+   "prompt": "Active application: Slack\nWindow: general - Acme - Slack\n\nTranscriptions:\n[a/m]: ship it friday\n[b/m]: Ship it Friday."
+  },
+  {
+   "results": [
+    {
+     "text": "part two",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 2
+    },
+    {
+     "text": "ship it",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 1
+    },
+    {
+     "text": "ship it",
+     "provider": "b",
+     "mic": "m",
+     "chunk": 1
+    },
+    {
+     "text": "ship it",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 3
+    },
+    {
+     "text": "",
+     "provider": "b",
+     "mic": "m",
+     "chunk": 3
+    }
+   ],
+   "context": {
+    "app_name": "Notes",
+    "window_title": "",
+    "bundle_id": "com.apple.Notes"
+   },
+   "prompt": "Active application: Notes\n\nTranscriptions:\nThe audio came in consecutive parts; each lists what the recognizers heard of that part.\nPart 1:\n[a/m]: ship it\nPart 2:\n[a/m]: part two\nPart 3:\n[a/m]: ship it"
+  },
+  {
+   "results": [
+    {
+     "text": "Ça marche 🚀",
+     "provider": "a",
+     "mic": "m",
+     "chunk": 0
+    },
+    {
+     "text": "ça marche",
+     "provider": "b",
+     "mic": "m",
+     "chunk": 0
+    }
+   ],
+   "context": {
+    "app_name": "Slack",
+    "window_title": "general - Acme - Slack",
+    "bundle_id": "com.tinyspeck.slackmacgap"
+   },
+   "prompt": "Active application: Slack\nWindow: general - Acme - Slack\n\nTranscriptions:\n[a/m]: Ça marche 🚀\n[b/m]: ça marche"
+  }
+ ],
+ "systems": [
+  {
+   "system_prompt": "",
+   "custom_instructions": "",
+   "learn": false,
+   "learned": [
+    [
+     [
+      "cloud",
+      "Claud"
+     ],
+     "Claude",
+     2
+    ]
+   ],
+   "supplied": [
+    "Postgres",
+    "Kubernetes operator"
+   ],
+   "built": "Turn this speech-to-text transcript into the message the speaker would have typed if they had written it themselves.\n\nTyped text drops the scaffolding of speech: filler sounds, filler words that carry no meaning (\"like\", \"you know\", \"I mean\", \"kind of\", \"basically\"), stutters, repeats, and false starts. When the speaker corrects themselves, keep only the version they settled on. When the speaker calls something off with \"scratch that\" or \"never mind\", drop it along with what it cancels; anything they say after still stands. Reply with exactly [nothing] only if nothing at all is left.\n\nEverything else is theirs. Keep their words, slang, tone, and phrasing, and never add words they didn't say. Fix punctuation, grammar, and clear mishearings; when several transcriptions of the same audio are given, use them together to work out what was said. Recognizers often drop or swap short words like \"not\", \"never\" and \"no\" (\"no reason\" heard as \"a reason\"), so if any transcription has a negation the others lack, keep it: losing one reverses the meaning. Unfamiliar names are usually real products, people, or jargon, so keep them. When unsure, keep what was said.\n\nNever use an em dash or en dash. Where the speaker breaks off, restarts or changes course, end the sentence there or use a comma, as a person typing would.\n\nReturn only the cleaned text, as one continuous line with no line breaks, markdown, or commentary."
+  },
+  {
+   "system_prompt": "",
+   "custom_instructions": "In Slack, write in lowercase.",
+   "learn": true,
+   "learned": [
+    [
+     [
+      "cloud",
+      "Claud"
+     ],
+     "Claude",
+     2
+    ]
+   ],
+   "supplied": [
+    "Postgres",
+    "Kubernetes operator"
+   ],
+   "built": "Turn this speech-to-text transcript into the message the speaker would have typed if they had written it themselves.\n\nTyped text drops the scaffolding of speech: filler sounds, filler words that carry no meaning (\"like\", \"you know\", \"I mean\", \"kind of\", \"basically\"), stutters, repeats, and false starts. When the speaker corrects themselves, keep only the version they settled on. When the speaker calls something off with \"scratch that\" or \"never mind\", drop it along with what it cancels; anything they say after still stands. Reply with exactly [nothing] only if nothing at all is left.\n\nEverything else is theirs. Keep their words, slang, tone, and phrasing, and never add words they didn't say. Fix punctuation, grammar, and clear mishearings; when several transcriptions of the same audio are given, use them together to work out what was said. Recognizers often drop or swap short words like \"not\", \"never\" and \"no\" (\"no reason\" heard as \"a reason\"), so if any transcription has a negation the others lack, keep it: losing one reverses the meaning. Unfamiliar names are usually real products, people, or jargon, so keep them. When unsure, keep what was said.\n\nNever use an em dash or en dash. Where the speaker breaks off, restarts or changes course, end the sentence there or use a comma, as a person typing would.\n\nReturn only the cleaned text, as one continuous line with no line breaks, markdown, or commentary.\n\nUser preferences:\nIn Slack, write in lowercase.\n\nAcross separate earlier dictations, this speaker corrected the typed text in these ways: \"cloud\" or \"Claud\" corrected to \"Claude\" (2 dictations). This is evidence about the words they use, not a list of replacements: apply one only where the audio and the surrounding words support it.\n\nWords and names this speaker uses: Postgres, Kubernetes operator. Where the audio fits one of these, spell it this way."
+  },
+  {
+   "system_prompt": "Translate to Spanish.",
+   "custom_instructions": "",
+   "learn": true,
+   "learned": [
+    [
+     [
+      "cloud",
+      "Claud"
+     ],
+     "Claude",
+     2
+    ]
+   ],
+   "supplied": [
+    "Postgres",
+    "Kubernetes operator"
+   ],
+   "built": "Translate to Spanish.\n\nAcross separate earlier dictations, this speaker corrected the typed text in these ways: \"cloud\" or \"Claud\" corrected to \"Claude\" (2 dictations). This is evidence about the words they use, not a list of replacements: apply one only where the audio and the surrounding words support it.\n\nWords and names this speaker uses: Postgres, Kubernetes operator. Where the audio fits one of these, spell it this way."
+  }
+ ]
+}
