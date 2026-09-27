@@ -1,0 +1,5370 @@
+{
+ "classify": [
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "int word ro 字 The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring. outro. And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Follow up",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and re-run the migrations?",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast in early spring.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nEarlier text. Quiet hiking trails near the coast in early spring. outro.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the🚀 standup to Thursday, not Friday. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nOne\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "we should move the standup to thursday, not friday. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done And another sentence typed after.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Th",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Th"
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nOne\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the Coast in early spring.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, not Friday.\nPS And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nintro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 we should move the standup to thursday, not friday.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday, not Friday. outro. And another sentence typed after.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nintro 字 Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the coast in early s",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hiking trails near the coast in early s"
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails n",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nOne\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nOne\ntwo. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit demain à"
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro. And another sentence typed after.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text Ça marche on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "quiet hiking trails near the coast in early spring.\nps",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio which is plenty for speech",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio which is plenty for speech 🚀 done",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 the build uses 16 khz mono audio, which is plenty for speech.\nps",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We+should+move+the+standup+to+Thursday,+not+Friday. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo Can you check the retry logic for post grass and rerun the migrations 🚀 done",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursdéay, not Friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Thursdéay, not Friday."
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday not Friday\nPS",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo Quiet hiking trails near the coast in early spring 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses sixteen kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio, which is more than enough for speech.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nQuiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Message #general",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We+should+move+the+standup+to+Thursday,+not+Friday.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audxio, which is plenty for speech.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audxio, which is plenty for speech."
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday not Friday 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet+hiking+trails+near+the+coast+in+early+spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nintro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the Coast in early spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech. 🚀 done",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit ce soir à dix heures 🚀\nPS",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 we should move the standup to thursday, not friday.\nps",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spring. And another sentence typed after.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "one\ntwo. the build uses 16 khz mono audio, which is plenty for speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à dix heures ",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "earlier text. can you check the retry logic for post grass and rerun the migrations?\nps",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the coast in early spring. ",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nThe build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We+should+move+the+standup+to+Thursday,+not+Friday. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday not Friday\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, not Friday.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We xshould move the standup to Thursday, not Friday.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "edited",
+   "corrected": "We xshould move the standup to Thursday, not Friday."
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Message #general",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier ",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We+should+move+the+standup+to+Thursday,+not+Friday.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nOne\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo Quiet hiking trails near the coast in early spring\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is more than enough for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 And another sentence typed after.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nEarlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nOne\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nEarlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. word  Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech.\nPS",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring.\nPS And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo We should move the standup to Thursday not Friday\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "we should move the standup to thursday, not friday. outro.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 quiet hiking trails near the coast in early spring. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "earlier text. can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text The build uses 16 kHz mono audio which is plenty for speech outro",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nOne\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the🚀 migrations?",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo Ça marche on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spring. outro. And another sentence typed after.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nOne\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses 16 kHz mono audio, which is more than enough for speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\n🚀two. We should move the standup to Thursday, not Friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spring. And another sentence typed after.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for Postgres and rerun the migrations? outro.",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for Postgres and rerun the migrations?"
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nEarlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you che",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 the build uses 16 khz mono audio, which is plenty for speech.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the coast in early spring. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to ",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to"
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring. outro. And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "one\ntwo. the build uses 16 khz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "one\ntwo. quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for post grass and re-run the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "   ",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done And another sentence typed after.",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS And another sentence typed after.",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday.\nps",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nCan you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses 16 kHxz mono audio, which is plenty for speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHxz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should xmove the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "We should xmove the standup to Thursday, not Friday."
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails ne word ar the coast in early spring.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hiking trails ne word ar the coast in early spring."
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We sh🚀ould move the standup to Thursday, not Friday. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nintro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is more than enough for speech.\nPS",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "quiet hiking trails near the coast in early spring. outro.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Ask ChatGPT",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nÇa marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nThe build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "can you check the retry logic for post grass and rerun the migrations?\nps",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo Can you check the retry logic for post grass and rerun the migrations outro",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nintro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations outro",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit ce soir à dix heures 🚀",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "earlier text. the build uses 16 khz mono audio, which is plenty for speech.",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses 16 kHz mono audio, which i",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which i"
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça+marche,+on+se+voit+demain+à+dix+heures+🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet+hiking+trails+near+the+coast+in+early+spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet+hiking+trails+near+the+coast+in+early+spring.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Message #general",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the Coast in early spring. 🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo Can you check the retry logic for post grass and rerun the migrations\nPS",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hiking trails near the coast"
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, not Fr",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Thursday, not Fr"
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the stand word up to Thursday, not Friday. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the stand word up to Thursday, not Friday."
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech.\nPS",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Ask ChatGPT",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "the build uses 16 khz mono audio, which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, not Friday. And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, not Friday.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations? 🚀 done",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier texxt. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outr🚀o.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio which is plenty for speech\nPS",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro. And another sentence typed after.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. outro. And another sentence typed after.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro. And another sentence typed after.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses 16 kHz mono audio, which is more than enough for speech.\nPS",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet+hiking+trails+near+the+coast+in+early+spring. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses sixteen kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses sixteen kHz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet+hiking+trails+near+the+coast+in+early+spring.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain xà dix heures 🚀 outro.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit demain xà dix heures 🚀"
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, and Friday.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Thursday, and Friday."
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 🚀 done And another sentence typed after.",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à dix heures 🚀 And another sentence typed after.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche on se voit demain à dix heures 🚀 outro",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier tex",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Ask ChatGPT",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for post grass and re-run the migrations?",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit ce soir à dix heures 🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the word  migrations? 🚀 done",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for post grass and rerun the word  migrations?"
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is more than enough for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet+hiking+trails+near+the+coast+in+early+spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 quiet hiking trails near the coast in early spring. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo Quiet hiking trails near the coast in early spring",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the Coast in early spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nintro 字 Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text Ça marche on se voit demain à dix heures 🚀",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nThe build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nÇa marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nintro 字 We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, not Friday. 🚀 done And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "one\ntwo. can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Wednesday, not Friday.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Wednesday, not Friday."
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and re-run the migrations?\nPS",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can y",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations? 🚀 done",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "one\ntwo. the build uses 16 khz mono audio, which is plenty for speech.\nps",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hikiéng trails near the coast in early spring.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hikiéng trails near the coast in early spring."
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text Ça marche on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday. outro. And another sentence typed after.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 we should move the standup to thursday, not friday.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "earlier text. ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hxiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hxiking trails near the coast in early spring."
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Follow up",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The bxuild uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The bxuild uses 16 kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. And another sentence typed after.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "one\ntwo. can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "   ",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet+hiking+trails+near+the+coast+in+early+spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nOne\ntwo. Quiet hiking trails near the coast in early spring.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday,",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Thursday,"
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses 16 kHz mono audio, which is more than enough for speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet+hiking+trails+near+the+coast+in+early+spring. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nEarlier text. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "the build uses 16 khz mono audio, which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à d",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit demain à d"
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations? 🚀 done",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nQuiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Ask ChatGPT",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS And another sentence typed after.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nintro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations?\nPS And another sentence typed after.",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit ce soir à dix heures 🚀",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet+hiking+trails+near+the+coast+in+early+spring.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mo word no audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mo word no audio, which is plenty for speech."
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and r word erun the migrations? 🚀 done",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for post grass and r word erun the migrations?"
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "   ",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nintro 字 Quiet hiking trails near the coast in early spring.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "we should move the standup to thursday, not friday.\nps",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nintro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Follow up",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? out",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Something new at the top.\nOne\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trail",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The ",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup éto Thursday, not Friday.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup éto Thursday, not Friday."
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass éand rerun the migrations? outro.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for post grass éand rerun the migrations?"
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiki",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Follow up",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça+marche,+on+se+voit+demain+à+dix+heures+🚀 🚀 done",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo The build uses 16 kHz mono audio which is plenty for speech\nPS",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. C",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking tra word ils near the coast in early spring. outro.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "edited",
+   "corrected": "Quiet hiking tra word ils near the coast in early spring."
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for Postgres and rerun the migrations?\nPS",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for Postgres and rerun the migrations?"
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro. And another sentence typed after.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit ce soir à dix heures 🚀 outro.",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text Ça marche on se voit demain à dix heures 🚀",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring. 🚀 done And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "one\ntwo. can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Something new at the top.\nOne\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for post grass and re-run the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done And another sentence typed after.",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the coast in early spr🚀ing.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done And another sentence typed after.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nOne\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We sh word ould move the standup to Thursday, not Friday.",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "edited",
+   "corrected": "We sh word ould move the standup to Thursday, not Friday."
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations\nPS",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo Can you check the retry logic for post grass and rerun the migrations outro",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Message #general",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses sixteen kHz mono audio, which is plenty for speech.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations? And another sentence typed after.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo We should move the standup to Thursday not Friday outro",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, not Friday. 🚀 done And another sentence typed after.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche,",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet+hiking+trails+near+the+coast+in+early+spring. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Ask ChatGPT",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche on se voit demain à dix heures 🚀 outro",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit ce soir à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain word  à dix heures 🚀",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit demain word  à dix heures 🚀"
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the coast in early spring\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Follow up",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio, which is plenty for speech. And another sentence typed after.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Message #general",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, not Friday. word  🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nOne\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We+should+move+the+standup+to+Thursday,+not+Friday. 🚀 done",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "can you check the retry logic for post grass and rerun the migrations?\nps",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Message #general",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nintro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "one\ntwo. the build uses 16 khz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit ce soir à dix heures 🚀 🚀 done",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voit ce soir à dix heures 🚀"
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "   ",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voxit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "edited",
+   "corrected": "Ça marche, on se voxit demain à dix heures 🚀"
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nintro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can ",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the Coast in early spring. 🚀 done",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? And another sentence typed after.",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 the build uses 16 khz mono audio, which is plenty for speech. 🚀 done",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "earlier text. ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for Postgres and rerun the migrations? outro.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "edited",
+   "corrected": "Can you check the retry logic for Postgres and rerun the migrations?"
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Something new at the top.\nWe should move the standup to Thursday, not Friday.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry logic for post grass and rerun the migrations outro",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, not Friday.\nPS",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations\nPS",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We+should+move+the+standup+to+Thursday,+not+Friday. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio, which is more than enough for speech.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Quiet hiking trails near the Coast in early spring.\nPS",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The+build+uses+16+kHz+mono+audio,+which+is+plenty+for+speech. 🚀 done",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "earlier text. the build uses 16 khz mono audio, which is plenty for speech. outro.",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça+marche,+on+se+voit+demain+à+dix+heures+🚀\nPS",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio, which is more than enough for speech. outro.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio, which is more than enough for speech."
+  },
+  {
+   "baseline": "intro 字 Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "intro 字 Quiet hiking trails near the Coast in early spring.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Message #general",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "We should move the standup to Thursday, not Friday.\nPS",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Message #general",
+   "span": [
+    0,
+    51
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo word . Quiet hiking trails near the coast in early spring.\nPS",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "The build uses 16 kHz mono audio,é which is plenty for speech. outro.",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses 16 kHz mono audio,é which is plenty for speech."
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Follow up",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses sixteen kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça+marche,+on+se+voit+demain+à+dix+heures+🚀\nPS",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trails near the Coast in early spring. 🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "One\ntwo. Can you check the retry logic for post grass and rerun the migrations? outro. And another sentence typed after.",
+   "span": [
+    9,
+    79
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can you check the retry",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Follow up",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nintro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀 🚀 done",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring. 🚀 done",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "earlier text. quiet hiking trails near the coast in early spring. 🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier ",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "One\ntwo. The build uses sixteen kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "edited",
+   "corrected": "The build uses sixteen kHz mono audio, which is plenty for speech."
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? outro.",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text Can you check the retry logic for post grass and rerun the migrations outro",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "Earlier text. We should move the standup to Thursday, and Friday. 🚀 done",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "edited",
+   "corrected": "We should move the standup to Thursday, and Friday."
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you check the retry logic for post grass and rerun the migrations? And another sentence typed after.",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "intro 字 Ça marche, on se voit demain à dix heures 🚀 out🚀ro.",
+   "span": [
+    8,
+    51
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday, not Friday. outro.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can you check the retry logic for post grass and rerun the migrations?\nPS And another sentence typed after.",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "can you check the retry logic for post grass and rerun the migrations? 🚀 done",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nOne\ntwo. The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    9,
+    70
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "intro 字 We should move the standup to Thursday, not Friday. 🚀 done And another sentence typed after.",
+   "span": [
+    8,
+    59
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, on se voit",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "one\ntwo. we should move the standup to thursday, not friday.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "",
+   "span": [
+    0,
+    61
+   ],
+   "outcome": "cleared",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Can you check the retry logic for post grass and rerun the migrations?\nPS",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Earlier text. Can you ch word eck the retry logic for post grass and rerun the migrations?\nPS",
+   "span": [
+    14,
+    84
+   ],
+   "outcome": "edited",
+   "corrected": "Can you ch word eck the retry logic for post grass and rerun the migrations?"
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Something new at the top.\nintro 字 The build uses 16 kHz mono audio, which is plenty for speech. outro.",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    0,
+    70
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "One\ntwo. Ça marche, o",
+   "span": [
+    9,
+    52
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. The build uses 16 kHz mono audio, which is plenty for speech. 🚀 done",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "Earlier text. The build uses 16 k",
+   "span": [
+    14,
+    75
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Quiet hiking trails near the coast in early spring.\nPS",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "Earlier text. Quiet hiking trail",
+   "span": [
+    14,
+    65
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "current": "intro 字 Can+you+check+the+retry+logic+for+post+grass+and+rerun+the+migrations?",
+   "span": [
+    8,
+    78
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "current": "intro 字 The build uses 16 kHz mono audio, which is plenty for speech.\nPS",
+   "span": [
+    8,
+    69
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Ça marche, on se voit demain à dix heures 🚀 outro.",
+   "span": [
+    0,
+    43
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. Quiet hiking trails near the coast in early spring. outro.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "current": "One\ntwo. Quiet hiking trails near the Coast in early spring. outro.",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "reformatted",
+   "corrected": ""
+  },
+  {
+   "baseline": "Earlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "current": "Something new at the top.\nEarlier text. Ça marche, on se voit demain à dix heures 🚀\nPS",
+   "span": [
+    14,
+    57
+   ],
+   "outcome": "unchanged",
+   "corrected": ""
+  },
+  {
+   "baseline": "One\ntwo. We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "current": "One\ntwo. We should ",
+   "span": [
+    9,
+    60
+   ],
+   "outcome": "replaced",
+   "corrected": ""
+  }
+ ],
+ "gone": [
+  "gone",
+  ""
+ ],
+ "anchor": [
+  {
+   "field": "pre ou check the retry logic for post grass and rerun the migrations? post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    0,
+    69
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxxxWe should move the standup to Thursday, not Frid…",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    91,
+    140
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxWe should move the standup to Thursday, not Frid…",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    11,
+    60
+   ]
+  },
+  {
+   "field": "pre rche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ]
+  },
+  {
+   "field": "rche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    38
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxCan you check the retry logic for post grass and rerun the migratio…",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    28,
+    96
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    65,
+    116
+   ]
+  },
+  {
+   "field": "ou check the retry logic for post grass and rerun the migrations? post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    0,
+    65
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    46
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxÇa marche, on se voit demain à dix heure… post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    30,
+    73
+   ]
+  },
+  {
+   "field": "pre  hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre ould move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    50
+   ]
+  },
+  {
+   "field": "pre Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQuiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "pre xxWe should move the standup to Thursday, not Frid…",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    6,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee… post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    86,
+    147
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxÇa marche, on se voit demain à dix heure…",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    99,
+    140
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQuiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaÇa marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    70,
+    113
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxQuiet hiking trails near the coast in early spri…",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    79,
+    128
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaauild uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    65,
+    126
+   ]
+  },
+  {
+   "field": "pre  hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre xxxxxxxxxxxxxxxxxxxxxxÇa marche, on se voit demain à dix heure… post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    26,
+    69
+   ]
+  },
+  {
+   "field": "pre We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "pre Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    4,
+    47
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaCan you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    70,
+    140
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaauild uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    65,
+    126
+   ]
+  },
+  {
+   "field": "pre We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaou check the retry logic for post grass and rerun the migrations? post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    65,
+    135
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxWe should move the standup to Thursday, not Frid…",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    73,
+    122
+   ]
+  },
+  {
+   "field": "pre The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    4,
+    65
+   ]
+  },
+  {
+   "field": "xxxxxxxxxCan you check the retry logic for post grass and rerun the migratio…",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    9,
+    77
+   ]
+  },
+  {
+   "field": "ou check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    0,
+    65
+   ]
+  },
+  {
+   "field": "Ça marche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxxxxxxxCan you check the retry logic for post grass and rerun the migratio…",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    23,
+    91
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaThe build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    70,
+    131
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaauild uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    65,
+    126
+   ]
+  },
+  {
+   "field": "We should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaauild uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    65,
+    126
+   ]
+  },
+  {
+   "field": "uild uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    56
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxÇa marche, on se voit demain à dix heure…",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    74,
+    115
+   ]
+  },
+  {
+   "field": "pre Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    4,
+    47
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    65,
+    116
+   ]
+  },
+  {
+   "field": "rche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    65,
+    116
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaCan you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    70,
+    140
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "ould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "ould move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    46
+   ]
+  },
+  {
+   "field": "Can you check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    0,
+    70
+   ]
+  },
+  {
+   "field": "pre Can you check the retry logic for post grass and rerun the migrations? post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    4,
+    74
+   ]
+  },
+  {
+   "field": "ould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaWe should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "uild uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ]
+  },
+  {
+   "field": "pre xxxxxxxxxxxxxxxWe should move the standup to Thursday, not Frid… post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    19,
+    70
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaou check the retry logic for post grass and rerun the migrations?",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    65,
+    135
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaWe should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaThe build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    70,
+    131
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    26,
+    85
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaÇa marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    70,
+    113
+   ]
+  },
+  {
+   "field": "uild uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    56
+   ]
+  },
+  {
+   "field": "xxxÇa marche, on se voit demain à dix heure…",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    3,
+    44
+   ]
+  },
+  {
+   "field": "pre  hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxQuiet hiking trails near the coast in early spri… post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    99,
+    150
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaÇa marche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    70,
+    113
+   ]
+  },
+  {
+   "field": "uild uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    56
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQuiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "pre Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxQuiet hiking trails near the coast in early spri… post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    17,
+    68
+   ]
+  },
+  {
+   "field": "pre We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    65,
+    116
+   ]
+  },
+  {
+   "field": "pre Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    4,
+    47
+   ]
+  },
+  {
+   "field": "xxxxxxxxQuiet hiking trails near the coast in early spri…",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    8,
+    57
+   ]
+  },
+  {
+   "field": "Ça marche, on se voit demain à dix heures 🚀",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    0,
+    43
+   ]
+  },
+  {
+   "field": "xxxxxxxxWe should move the standup to Thursday, not Frid… post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    8,
+    59
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    46
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxWe should move the standup to Thursday, not Frid… post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    13,
+    64
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaCan you check the retry logic for post grass and rerun the migrations? post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    70,
+    140
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    92,
+    151
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    65,
+    116
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaÇa marche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    70,
+    113
+   ]
+  },
+  {
+   "field": "uild uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre ould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaWe should move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "Quiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "pre xxxxxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    24,
+    83
+   ]
+  },
+  {
+   "field": "pre xxxxxxxxxxxxÇa marche, on se voit demain à dix heure… post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    16,
+    59
+   ]
+  },
+  {
+   "field": "Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "xxxxxxxxxxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    25,
+    84
+   ]
+  },
+  {
+   "field": "ould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre ould move the standup to Thursday, not Friday.",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    50
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxWe should move the standup to Thursday, not Frid… post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    72,
+    123
+   ]
+  },
+  {
+   "field": " hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "xxxxxCan you check the retry logic for post grass and rerun the migratio… post",
+   "typed": "Can you check the retry logic for post grass and rerun the migrations?",
+   "span": [
+    5,
+    75
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaÇa marche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    70,
+    113
+   ]
+  },
+  {
+   "field": "We should move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre The build uses 16 kHz mono audio, which is plenty for speech.",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    4,
+    65
+   ]
+  },
+  {
+   "field": "pre Ça marche, on se voit demain à dix heures 🚀 post",
+   "typed": "Ça marche, on se voit demain à dix heures 🚀",
+   "span": [
+    4,
+    47
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    98,
+    157
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxThe build uses 16 kHz mono audio, which is plenty for spee…",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    77,
+    136
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQuiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "pre ould move the standup to Thursday, not Friday. post",
+   "typed": "We should move the standup to Thursday, not Friday.",
+   "span": [
+    0,
+    51
+   ]
+  },
+  {
+   "field": "pre Quiet hiking trails near the coast in early spring.",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    4,
+    55
+   ]
+  },
+  {
+   "field": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaQuiet hiking trails near the coast in early spring. post",
+   "typed": "Quiet hiking trails near the coast in early spring.",
+   "span": [
+    70,
+    121
+   ]
+  },
+  {
+   "field": "The build uses 16 kHz mono audio, which is plenty for speech. post",
+   "typed": "The build uses 16 kHz mono audio, which is plenty for speech.",
+   "span": [
+    0,
+    61
+   ]
+  }
+ ]
+}

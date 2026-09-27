@@ -13,6 +13,7 @@ let package = Package(
         // AppKit, Core Audio, accessibility and CGEvent implementations of Core's protocols.
         .target(name: "MergeScribeMac", dependencies: ["MergeScribeCore"]),
         .executableTarget(name: "MergeScribe", dependencies: ["MergeScribeCore", "MergeScribeMac"]),
-        .testTarget(name: "MergeScribeCoreTests", dependencies: ["MergeScribeCore"]),
+        .testTarget(name: "MergeScribeCoreTests", dependencies: ["MergeScribeCore"],
+                    resources: [.copy("Goldens")]),
     ]
 )
