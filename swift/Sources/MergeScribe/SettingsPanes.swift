@@ -380,7 +380,14 @@ struct VocabularyPane: View {
                 }
                 ForEach(model.learned, id: \.after) { correction in
                     LabeledContent {
-                        Text("\(correction.count) dictations").foregroundStyle(.secondary).font(.caption)
+                        HStack(spacing: 10) {
+                            Text("\(correction.count) dictations").foregroundStyle(.secondary).font(.caption)
+                            Button { model.forget(correction) } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Forget this one")
+                        }
                     } label: {
                         HStack(spacing: 6) {
                             Text(correction.before.joined(separator: ", ")).foregroundStyle(.secondary).strikethrough()
@@ -390,7 +397,7 @@ struct VocabularyPane: View {
                     }
                 }
             } header: { Text("Learned") } footer: {
-                Footer("A word you fix the same way after two separate dictations. Needs Watch for your edits, in Advanced.")
+                Footer("A word you fix the same way after two separate dictations, shown to the correction model as evidence. Everyday words like \"it\" come from rewording and aren't passed to the recognizers. Needs Watch for your edits, in Advanced.")
             }
         }
         .formStyle(.grouped)

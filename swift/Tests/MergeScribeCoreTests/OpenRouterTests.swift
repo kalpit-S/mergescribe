@@ -150,11 +150,22 @@ private final class Typed: @unchecked Sendable {
         #expect(http.bodies[0]["input_audio"]!["data"]!.string == Data([1, 2]).base64EncodedString())
     }
 
+    @Test func maiGetsAPhraseListWithinAzuresLimits() async throws {
+        let http = FakeHTTP([.data(200, #"{"text": "ok"}"#)])
+        let long = String(repeating: "x", count: 51)
+        let terms = ["Claude", long] + (1...250).map { "Term \($0)" }
+        _ = try await TranscriptionClient(http: http).transcribe(wav: Data(), model: "microsoft/mai-transcribe-2", key: "k", keyterms: terms)
+        let phrases = http.bodies[0]["provider"]?["options"]?["azure"]?["phraseList"]?["phrases"]?.array ?? []
+        #expect(phrases.count == 200, "past 200 the whole request is refused")
+        #expect(phrases.first == "Claude" && !phrases.contains(.string(long)), "so is a phrase over 50 characters")
+    }
+
     @Test func otherModelsAndNoTermsGetNoProviderOptions() async throws {
-        let http = FakeHTTP([.data(200, #"{"text": "ok"}"#), .data(200, #"{"text": "ok"}"#)])
+        let http = FakeHTTP([.data(200, #"{"text": "ok"}"#), .data(200, #"{"text": "ok"}"#), .data(200, #"{"text": "ok"}"#)])
         let client = TranscriptionClient(http: http)
-        _ = try await client.transcribe(wav: Data(), model: "microsoft/mai-transcribe-2", key: "k", keyterms: ["Claude"])
+        _ = try await client.transcribe(wav: Data(), model: "fish-audio/transcribe-1-pro", key: "k", keyterms: ["Claude"])
         _ = try await client.transcribe(wav: Data(), model: "assemblyai/universal-3-5-pro", key: "k", keyterms: [])
+        _ = try await client.transcribe(wav: Data(), model: "microsoft/mai-transcribe-2", key: "k", keyterms: [])
         #expect(http.bodies.allSatisfy { $0["provider"] == nil })
     }
 

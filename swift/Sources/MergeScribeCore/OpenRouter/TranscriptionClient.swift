@@ -28,16 +28,13 @@ public final class TranscriptionClient: Sendable {
 
     /// What the model heard, annotations stripped. Throws on failure.
     ///
-    /// keyterms: words the speaker is known to use, for models that can be primed with them
-    /// (AssemblyAI's keyterms_prompt).
+    /// keyterms: words the speaker is known to use, for models that can be primed with them.
     public func transcribe(wav: Data, model: String, key: String, keyterms: [String] = []) async throws -> String {
         var body: [String: JSON] = [
             "model": .string(model),
             "input_audio": ["data": .string(wav.base64EncodedString()), "format": "wav"],
         ]
-        if model.hasPrefix("assemblyai/") && !keyterms.isEmpty {
-            body["provider"] = ["options": ["assemblyai": ["keyterms_prompt": JSON(keyterms)]]]
-        }
+        if let options = Self.priming(model, keyterms) { body["provider"] = ["options": .object(options)] }
         let request = OpenRouterAPI.request(OpenRouterAPI.base.appendingPathComponent("audio/transcriptions"),
                                             key: key, json: .object(body), timeout: Self.timeout)
         var client = http
@@ -56,6 +53,25 @@ public final class TranscriptionClient: Sendable {
             }
         }
         throw URLError(.unknown)
+    }
+
+    /// Whether a model can be primed with the speaker's words.
+    public static func acceptsVocabulary(_ model: String) -> Bool {
+        model.hasPrefix("assemblyai/") || model.hasPrefix("microsoft/")
+    }
+
+    /// The provider options that prime a model with the speaker's words; nil when it takes none.
+    /// Measured on the speaker's own recordings (Sep 2026), the names they use were heard 72% ->
+    /// 91% of the time by Universal and 81% -> 94% by MAI, with nothing wrongly inserted. MAI
+    /// (through Azure) refuses the whole request past 200 phrases or a phrase over 50 characters.
+    static func priming(_ model: String, _ terms: [String]) -> [String: JSON]? {
+        guard !terms.isEmpty else { return nil }
+        if model.hasPrefix("assemblyai/") { return ["assemblyai": ["keyterms_prompt": JSON(terms)]] }
+        if model.hasPrefix("microsoft/") {
+            let phrases = Array(terms.filter { $0.count <= 50 }.prefix(200))
+            return phrases.isEmpty ? nil : ["azure": ["phraseList": ["phrases": JSON(phrases)]]]
+        }
+        return nil
     }
 
     static func isTransport(_ error: URLError) -> Bool {

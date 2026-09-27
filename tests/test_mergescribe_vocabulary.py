@@ -200,6 +200,30 @@ class TestSuppliedVocabulary:
         supplied.write_text("claude\nPostgres\none two three four five six seven\n")
         assert known_terms(corrections, supplied) == ["Claude", "Postgres"]   # 7 words is too long a term
 
+    def test_everyday_words_are_not_worth_priming_a_recognizer_with(self, tmp_path):
+        from mergescribe.vocabulary import known_terms, learned_corrections
+
+        corrections = tmp_path / "corrections.jsonl"
+        corrections.write_text("\n".join(json.dumps(r) for r in [
+            row("s1", "I think VNode does well", "I think it does well"),
+            row("s2", "can't do anything", "can't do it"),
+            row("s3", "try deep sea", "try deep seek"), row("s4", "if deep sync is", "if deep seek is")]))
+        # The model still sees the rewording as evidence; the recognizers aren't pushed toward "it".
+        assert [after for _, after, _ in learned_corrections(corrections)] == ["it", "seek"]
+        assert known_terms(corrections, tmp_path / "none.txt") == ["seek"]
+
+    def test_a_forgotten_correction_is_no_longer_used(self, tmp_path):
+        from mergescribe.vocabulary import forget, known_terms, learned_corrections
+
+        corrections = tmp_path / "corrections.jsonl"
+        corrections.write_text("\n".join(json.dumps(r) for r in [
+            row("s1", "about cloud", "about Claude"), row("s2", "use cloud", "use Claude"),
+            row("s3", "Soul is fast", "Sol is fast"), row("s4", "and Soul", "and Sol")]))
+        forget("Sol", tmp_path / "vocabulary_forgotten.txt")
+        assert [after for _, after, _ in learned_corrections(corrections)] == ["Claude"]
+        assert known_terms(corrections, tmp_path / "none.txt") == ["Claude"]
+        assert len(corrections.read_text().splitlines()) == 4, "the corpus itself is kept"
+
     def test_the_prompt_takes_only_the_head_of_a_long_list(self):
         from mergescribe.vocabulary import MAX_PROMPT_TERMS, supplied_prompt
 

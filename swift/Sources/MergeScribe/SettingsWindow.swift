@@ -192,6 +192,17 @@ final class SettingsModel: ObservableObject {
         }
     }
 
+    /// Stop using a learned correction (the corpus of corrections is kept).
+    func forget(_ correction: Vocabulary.Correction) {
+        let store = VocabularyStore(paths: paths)
+        do {
+            try store.forget(correction.after)
+            learned = store.learnedCorrections()
+        } catch {
+            Log.line("[Settings] Could not forget a correction: \(error)")
+        }
+    }
+
     // MARK: - Numbers
 
     private var numbersFrom: Date?

@@ -31,6 +31,39 @@ public enum Vocabulary {
         }
     }
 
+    /// Words every recognizer already knows. A learned correction made only of these came from
+    /// rewording ("anything" -> "it"), and priming a recognizer with them does nothing but skew
+    /// it; the correction model still sees them as evidence and judges them itself.
+    public static let everyday: Set<String> = Set("""
+        a about above across actually after again against all almost along already also although
+        always am among an and any anyone anything are arent around as at away back bad basically be
+        because been before behind being below best better between big bit both but by came can cant
+        case come could couldnt day days definitely did didnt do does doesnt doing done dont down
+        during each else even ever every everyone everything fact feel few first for from gave get
+        getting give go goes going gone gonna good got gotta great had hadnt has hasnt have havent
+        having he her here hers hes high him his how i id if ill im in instead into is isnt it its
+        ive just keep kind kinda knew know last let lets like liked literally little long look lot
+        low made make many may maybe me mean meant might mine more most much must my myself near
+        need never new next no nope nor not nothing now of off often ok okay old on one ones only
+        onto or other our ours out over own part people per perhaps person place point probably put
+        quite rather really right said same saw say says see seem seen shall she shes short should
+        shouldnt since small so some someone something sometimes sort sorta still such sure take
+        tell than that thats the their theirs them then there theres these they theyre theyve thing
+        things think this those though thought through time times to today together told tomorrow
+        too took toward towards try under unless until up upon us use used very via wanna want was
+        wasnt way we well went were werent weve what whatever whats when where whether which while
+        who whom whose why will with within without wont work would wouldnt wrong yeah year years
+        yep yes yesterday yet you youd youll your youre yours youve
+        """.split(whereSeparator: \.isWhitespace).map(String.init))
+
+    /// False for a term made only of everyday words: a recognizer gains nothing from it.
+    public static func worthPriming(_ term: String) -> Bool {
+        term.split(whereSeparator: \.isWhitespace).contains { word in
+            let key = letters(String(word))
+            return !key.isEmpty && !everyday.contains(key)
+        }
+    }
+
     /// Word spans the user replaced, as (what was typed, what it became).
     static func replacements(_ typed: String, _ corrected: String) -> [(String, String)] {
         let before = typed.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -144,9 +177,13 @@ public final class VocabularyStore: @unchecked Sendable {
     /// Words handed in from outside, one per line, most important first: anything that
     /// knows the speaker's vocabulary before they say it can write here.
     public let suppliedFile: URL
+    /// Learned corrections the speaker removed in Settings, by what they corrected to; kept
+    /// beside the corpus.
+    public var forgottenFile: URL { correctionsFile.deletingLastPathComponent().appendingPathComponent("vocabulary_forgotten.txt") }
     private let lock = NSLock()
     private var learnedCache: (Date?, [Vocabulary.Correction]) = (nil, [])
     private var suppliedCache: (Date?, [String]) = (nil, [])
+    private var forgottenCache: (Date?, Set<String>) = (nil, [])
 
     public init(paths: AppPaths = AppPaths()) {
         correctionsFile = paths.correctionsFile
@@ -162,7 +199,39 @@ public final class VocabularyStore: @unchecked Sendable {
         (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
     }
 
+    /// Repeated corrections from the corpus, less any the speaker removed.
     public func learnedCorrections() -> [Vocabulary.Correction] {
+        let forgotten = forgottenKeys()
+        return repeated().filter { !forgotten.contains(letters($0.after)) }
+    }
+
+    /// Stop using a learned correction; the corpus itself is kept.
+    public func forget(_ after: String) throws {
+        let line = Data((after.trimmingCharacters(in: .whitespacesAndNewlines) + "\n").utf8)
+        try FileManager.default.createDirectory(at: forgottenFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let handle = try? FileHandle(forWritingTo: forgottenFile) {
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: line)
+        } else {
+            try line.write(to: forgottenFile)
+        }
+    }
+
+    private func forgottenKeys() -> Set<String> {
+        guard let modified = Self.modified(forgottenFile) else { return [] }
+        lock.lock()
+        if forgottenCache.0 == modified { defer { lock.unlock() }; return forgottenCache.1 }
+        lock.unlock()
+        let text = (try? String(contentsOf: forgottenFile, encoding: .utf8)) ?? ""
+        let keys = Set(text.split(whereSeparator: \.isNewline).map {
+            letters(String($0.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first ?? ""))
+        }).subtracting([""])
+        lock.lock(); forgottenCache = (modified, keys); lock.unlock()
+        return keys
+    }
+
+    private func repeated() -> [Vocabulary.Correction] {
         guard let modified = Self.modified(correctionsFile) else { return [] }
         lock.lock()
         if learnedCache.0 == modified { defer { lock.unlock() }; return learnedCache.1 }
@@ -194,10 +263,11 @@ public final class VocabularyStore: @unchecked Sendable {
     }
 
     /// Every term the speaker is known to use, sized for priming a recognizer: repeated
-    /// corrections first (proven in their own dictations), then the supplied ones, each once.
+    /// corrections first (proven in their own dictations, everyday words left out), then the
+    /// supplied ones, each once.
     public func knownTerms() -> [String] {
         var seen = Set<String>(), out: [String] = []
-        for term in learnedCorrections().map(\.after) + suppliedTerms() {
+        for term in learnedCorrections().map(\.after).filter(Vocabulary.worthPriming) + suppliedTerms() {
             let key = letters(term)
             if !key.isEmpty && !seen.contains(key)
                 && term.split(whereSeparator: \.isWhitespace).count <= Vocabulary.maxKeytermWords {

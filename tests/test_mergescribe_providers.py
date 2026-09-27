@@ -130,8 +130,15 @@ class TestOpenRouterSTTProvider:
         body = self._sent(monkeypatch, "assemblyai/universal-3-5-pro", lambda: ["Claude", "Postgres"])
         assert body["provider"] == {"options": {"assemblyai": {"keyterms_prompt": ["Claude", "Postgres"]}}}
 
+    def test_mai_gets_a_phrase_list_within_azures_limits(self, monkeypatch):
+        long = "x" * 51
+        terms = ["Claude", long] + [f"Term {i}" for i in range(1, 251)]
+        body = self._sent(monkeypatch, "microsoft/mai-transcribe-2", lambda: terms)
+        phrases = body["provider"]["options"]["azure"]["phraseList"]["phrases"]
+        assert len(phrases) == 200 and phrases[0] == "Claude" and long not in phrases
+
     def test_other_models_get_no_provider_options(self, monkeypatch):
-        body = self._sent(monkeypatch, "microsoft/mai-transcribe-2", lambda: ["Claude"])
+        body = self._sent(monkeypatch, "fish-audio/transcribe-1-pro", lambda: ["Claude"])
         assert "provider" not in body
 
     def test_no_terms_or_a_broken_source_sends_none(self, monkeypatch):

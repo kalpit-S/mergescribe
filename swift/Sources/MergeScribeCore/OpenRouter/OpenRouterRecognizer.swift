@@ -28,7 +28,7 @@ public struct OpenRouterRecognizer: Recognizer {
         let clock = ContinuousClock(), started = clock.now
         var text = ""
         do {
-            let terms = model.hasPrefix("assemblyai/") ? keyterms() : []
+            let terms = TranscriptionClient.acceptsVocabulary(model) ? keyterms() : []
             text = try await client.transcribe(wav: WAV.encode(samples, sampleRate: sampleRate), model: model,
                                                key: key, keyterms: terms)
         } catch {

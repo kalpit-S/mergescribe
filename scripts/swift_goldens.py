@@ -282,3 +282,5 @@ if __name__ == "__main__":
     write("prompts", prompts())
     write("judge", judge())
     write("chunker", chunker())
+    from mergescribe.vocabulary import EVERYDAY
+    write("everyday", sorted(EVERYDAY))

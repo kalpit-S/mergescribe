@@ -125,6 +125,36 @@ private func afters(_ corrections: [Vocabulary.Correction]) -> [String] { correc
         #expect(VocabularyStore(paths: home.paths).suppliedTerms() == ["Postgres", "Kubernetes operator"])
     }
 
+    @Test func everydayWordsAreNotWorthPrimingARecognizerWith() {
+        let home = TempHome()
+        home.write("corrections.jsonl", [jsonLine("s1", "I think VNode does well", "I think it does well"),
+                                         jsonLine("s2", "can't do anything", "can't do it"),
+                                         jsonLine("s3", "try deep sea", "try deep seek"),
+                                         jsonLine("s4", "if deep sync is", "if deep seek is")].joined(separator: "\n"))
+        let store = VocabularyStore(paths: home.paths)
+        // The model still sees the rewording as evidence; the recognizers aren't pushed toward "it".
+        #expect(store.learnedCorrections().map(\.after) == ["it", "seek"])
+        #expect(store.knownTerms() == ["seek"])
+    }
+
+    @Test func aForgottenCorrectionIsNoLongerUsed() throws {
+        let home = TempHome()
+        home.write("corrections.jsonl", [jsonLine("s1", "about cloud", "about Claude"), jsonLine("s2", "use cloud", "use Claude"),
+                                         jsonLine("s3", "Soul is fast", "Sol is fast"), jsonLine("s4", "and Soul", "and Sol")]
+                    .joined(separator: "\n"))
+        let store = VocabularyStore(paths: home.paths)
+        #expect(store.learnedCorrections().count == 2)
+        try store.forget("Sol")
+        #expect(store.learnedCorrections().map(\.after) == ["Claude"])
+        #expect(store.knownTerms() == ["Claude"])
+        #expect((try String(contentsOf: home.paths.correctionsFile, encoding: .utf8)).split(separator: "\n").count == 4,
+                "the corpus itself is kept")
+    }
+
+    @Test func theEverydayListMatchesPython() {
+        #expect(Vocabulary.everyday == Set((Golden.load("everyday").array ?? []).compactMap(\.string)))
+    }
+
     @Test func knownTermsPutLearnedFirstAndRepeatNothing() {
         let home = TempHome()
         home.write("corrections.jsonl", jsonLine("s1", "thoughts about cloud today", "thoughts about Claude today") + "\n"
