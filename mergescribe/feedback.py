@@ -306,7 +306,7 @@ def is_app_transform(typed: str, corrected: str) -> bool:
     """True when the app rewrote the text rather than the user correcting it.
 
     Observed in the wild: a browser omnibox URL-encodes a query
-    ("Best TVs to use" -> "Best+TVs+to+use"), and some fields lowercase or
+    ("Quiet hiking trails" -> "Quiet+hiking+trails"), and some fields lowercase or
     strip punctuation on commit. None of those say anything about what was
     misheard, so they must not enter the training corpus.
 
