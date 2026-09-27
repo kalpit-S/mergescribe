@@ -35,22 +35,8 @@ public enum Stats {
 
     public static func usage(metrics: URL = AppPaths().metricsFile, training: URL = AppPaths().trainingDir,
                              now: Date = Date(), calendar: Calendar = .current) -> Usage {
-        guard let text = try? String(contentsOf: metrics, encoding: .utf8) else { return Usage() }
-        var started: [String: Double] = [:], stopped: [String: Double] = [:]
-        var completed: [[String: JSON]] = []
-        for line in text.split(whereSeparator: \.isNewline) {
-            // Cheap filter first: the log is mostly per-chunk events.
-            guard line.contains("\"recording_st") || line.contains("\"session_complete\"") else { continue }
-            guard let record = (try? JSONDecoder().decode(JSON.self, from: Data(line.utf8)))?.object,
-                  let ts = record["ts"]?.double else { continue }
-            let session = record["session_id"]?.string ?? ""
-            switch record["event"]?.string {
-            case "recording_started": started[session] = ts
-            case "recording_stopped": stopped[session] = ts
-            case "session_complete": completed.append(record)
-            default: break
-            }
-        }
+        guard let data = try? Data(contentsOf: metrics) else { return Usage() }
+        let (started, stopped, completed) = scan(data)
 
         var result = Usage(dictations: ["today": 0, "week": 0, "all": 0], words: ["today": 0, "week": 0, "all": 0])
         let nowTs = now.timeIntervalSince1970, weekAgo = nowTs - 7 * 86400
@@ -58,18 +44,28 @@ public enum Stats {
         var daily = Array(repeating: 0, count: days)
         var speaking: [Double] = [], overall: [Double] = [], waits: [Double] = []
         var apps: [String: Int] = [:], appOrder: [String] = []
+        // Calendar arithmetic is slow next to everything else here; days repeat, so remember them.
+        var dayStarts: [Int: Date] = [:]
+        func dayStart(_ ts: Double) -> Date {
+            let hour = Int((ts / 3600).rounded(.down))
+            if let known = dayStarts[hour] { return known }
+            let start = calendar.startOfDay(for: Date(timeIntervalSince1970: ts))
+            dayStarts[hour] = start
+            return start
+        }
+        let formatter = dayFormatter(calendar)
 
         for record in completed {
             let ts = record["ts"]!.double!, session = record["session_id"]?.string ?? ""
             var words = record["words"]?.int
             if words == nil {
                 let finalText = record["final_text"]?.string ?? ""
-                words = finalText.split(whereSeparator: \.isWhitespace).count
-                if finalText.count >= oldTextLimit, let full = fullWordCount(session, ts, training, calendar) { words = full }
+                let (count, length) = wordsAndLength(finalText)
+                words = count
+                if length >= oldTextLimit, let full = fullWordCount(session, ts, training, formatter) { words = full }
             }
             guard let words, words > 0 else { continue }
-            let date = Date(timeIntervalSince1970: ts)
-            let day = calendar.startOfDay(for: date)
+            let day = dayStart(ts)
             var periods = ["all"]
             if ts >= weekAgo { periods.append("week") }
             if day == today { periods.append("today") }
@@ -77,9 +73,9 @@ public enum Stats {
                 result.dictations[period, default: 0] += 1
                 result.words[period, default: 0] += words
             }
-            if let age = calendar.dateComponents([.day], from: day, to: today).day, age >= 0, age < days {
-                daily[days - 1 - age] += words
-            }
+            // Whole days between the two midnights (a DST day is 23 or 25 hours, hence rounding).
+            let age = Int(((today.timeIntervalSince1970 - day.timeIntervalSince1970) / 86400).rounded())
+            if age >= 0, age < days { daily[days - 1 - age] += words }
             guard ts >= weekAgo else { continue }
             if let app = record["app"]?.string, !app.isEmpty {
                 if apps[app] == nil { appOrder.append(app) }
@@ -112,19 +108,77 @@ public enum Stats {
         return result
     }
 
+    /// The events stats need. The log is tens of megabytes of mostly per-chunk events: the
+    /// few lines that matter are found by their bytes, and only those are parsed.
+    public static func scan(_ data: Data) -> (started: [String: Double], stopped: [String: Double], completed: [[String: JSON]]) {
+        var started: [String: Double] = [:], stopped: [String: Double] = [:]
+        var completed: [[String: JSON]] = []
+        let wanted: [[UInt8]] = [Array("\"recording_st".utf8), Array("\"session_complete\"".utf8)]
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Void in
+            guard let base = raw.baseAddress else { return }
+            var start = 0
+            while start < raw.count {
+                var end = raw.count
+                if let found = memchr(base + start, 0x0A, raw.count - start) {
+                    end = UnsafeRawPointer(found) - base
+                }
+                let line = UnsafeRawBufferPointer(rebasing: raw[start..<end])
+                start = end + 1
+                var matches = false
+                for needle in wanted where !matches {
+                    matches = needle.withUnsafeBytes { memmem(line.baseAddress, line.count, $0.baseAddress, $0.count) != nil }
+                }
+                guard matches,
+                      let object = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any],
+                      let ts = (object["ts"] as? NSNumber)?.doubleValue else { continue }
+                let session = object["session_id"] as? String ?? ""
+                switch object["event"] as? String {
+                case "recording_started": started[session] = ts
+                case "recording_stopped": stopped[session] = ts
+                case "session_complete": completed.append(object.mapValues { JSON(any: $0) })
+                default: break
+                }
+            }
+        }
+        return (started, stopped, completed)
+    }
+
     /// The word count from the training capture, for records that kept only part of the text.
-    static func fullWordCount(_ session: String, _ ts: Double, _ training: URL, _ calendar: Calendar) -> Int? {
+    /// Words (runs between whitespace) and length in code points, in one pass over the scalars:
+    /// counting Characters over twenty thousand records took seconds.
+    static func wordsAndLength(_ text: String) -> (words: Int, length: Int) {
+        var words = 0, length = 0, inWord = false
+        for scalar in text.unicodeScalars {
+            length += 1
+            // ASCII first: the Unicode property lookup is the slow part, and nearly all of it is ASCII.
+            let space = scalar.isASCII ? (scalar.value == 32 || (9...13).contains(scalar.value)) : scalar.properties.isWhitespace
+            if space {
+                inWord = false
+            } else if !inWord {
+                inWord = true
+                words += 1
+            }
+        }
+        return (words, length)
+    }
+
+    static func dayFormatter(_ calendar: Calendar) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }
+
+    static func fullWordCount(_ session: String, _ ts: Double, _ training: URL, _ formatter: DateFormatter) -> Int? {
         let date = Date(timeIntervalSince1970: ts)
         for day in [date, date.addingTimeInterval(-86400)] {
             let url = training.appendingPathComponent(formatter.string(from: day)).appendingPathComponent(session)
                 .appendingPathComponent("metadata.json")
-            if let data = try? Data(contentsOf: url), let meta = try? JSONDecoder().decode(JSON.self, from: data) {
-                return (meta["final_output"]?.string ?? "").split(whereSeparator: \.isWhitespace).count
+            if let data = try? Data(contentsOf: url),
+               let meta = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                return wordsAndLength(meta["final_output"] as? String ?? "").words
             }
         }
         return nil

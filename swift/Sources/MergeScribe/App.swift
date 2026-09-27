@@ -22,6 +22,7 @@ final class App: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var statusLine: NSMenuItem!
     var hud: HUD!
+    lazy var settingsWindow = SettingsWindowController(http: http)
 
     /// The recognizers the settings ask for. Built per recording, so a change in Settings
     /// applies to the next dictation and never swaps a running session's set under it.
@@ -80,6 +81,9 @@ final class App: NSObject, NSApplicationDelegate {
 
         buildMenu()
         setStatus(.idle)
+        NotificationCenter.default.addObserver(forName: .settingsChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.settingsDidChange() }
+        }
         Log.line("Ready! Press \(settings.triggerKey) to record.")
     }
 
@@ -96,6 +100,17 @@ final class App: NSObject, NSApplicationDelegate {
             Notifications.post("Allow MergeScribe under Input Monitoring to use the trigger key")
             setStatus(.error)
         }
+    }
+
+    /// Settings saved a change: apply what can be applied now. The rest (models, prompts)
+    /// is read afresh by the next recording anyway.
+    func settingsDidChange() {
+        let before = settings
+        settings = Settings.load(paths: paths, log: { _ in })
+        hud.setEnabled(settings.hudEnabled)
+        if settings.triggerKey != before.triggerKey { startHotkey() }
+        if settings.enabledMics != before.enabledMics, current == nil { audio.apply(settings) }
+        setStatus(current == nil ? .idle : .recording)
     }
 
     // MARK: - Recording
@@ -148,6 +163,7 @@ final class App: NSObject, NSApplicationDelegate {
         statusLine = NSMenuItem(title: "Status: Idle", action: nil, keyEquivalent: "")
         menu.addItem(statusLine)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "Open Log", action: #selector(openLog), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit MergeScribe", action: #selector(quit), keyEquivalent: "q").target = self
@@ -167,6 +183,8 @@ final class App: NSObject, NSApplicationDelegate {
         statusItem?.button?.image = image
         statusLine?.title = "Status: \(status.rawValue.capitalized)"
     }
+
+    @objc func openSettings() { settingsWindow.present() }
 
     @objc func openLog() { NSWorkspace.shared.open(paths.logFile) }
 

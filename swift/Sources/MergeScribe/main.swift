@@ -70,6 +70,21 @@ case "hud-preview":
     }
     app.run()
 
+case "settings-preview":
+    // The Settings window on its own; with --capture <dir>, each section is also saved as an image.
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    let controller = MainActor.assumeIsolated { SettingsWindowController(http: URLSessionHTTPClient()) }
+    let capturing = arguments.contains("--capture")
+    MainActor.assumeIsolated { controller.present(activate: !capturing) }
+    if let index = arguments.firstIndex(of: "--capture"), index + 1 < arguments.count {
+        let directory = URL(fileURLWithPath: arguments[index + 1])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            MainActor.assumeIsolated { controller.captureSections(to: directory) }
+        }
+    }
+    app.run()
+
 case nil, "run":
     LogFile.start()
     let app = NSApplication.shared
