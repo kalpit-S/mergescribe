@@ -81,3 +81,8 @@ ROADMAP.md
 .codex/
 AGENTS.md
 PARAKEET_FINETUNE_PLAN.md
+
+# Swift build products
+swift/.build/
+swift/.swiftpm/
+swift/build/
