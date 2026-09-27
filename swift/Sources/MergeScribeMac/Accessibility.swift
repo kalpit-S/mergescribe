@@ -127,6 +127,10 @@ public final class MacFocus: Focus, @unchecked Sendable {
     /// The selected text, found by sending ⌘C and seeing whether the clipboard changed; the
     /// clipboard is put back as it was either way.
     public func selectedText() -> String? {
+        Pasteboard.lock.withLock { probeSelection() }
+    }
+
+    private func probeSelection() -> String? {
         let board = NSPasteboard.general
         let saved = Self.snapshot(board)
         let before = board.changeCount

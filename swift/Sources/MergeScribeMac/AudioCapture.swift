@@ -110,11 +110,13 @@ public final class AudioEngine: @unchecked Sendable {
     private let captures = Locked<[String: MicCapture]>([:])
     private let recording = Locked(false)
     private let currentLevel = Locked(0.0)
+    private let sampleRate: Locked<Int>
     private var monitor: DispatchSourceTimer?
     private var wanted: [String] = []
 
     public init(settings: Settings) {
         chunker = Chunker(config: Chunker.Config(settings))
+        sampleRate = Locked(settings.sampleRate)
     }
 
     /// 0...1, the primary mic's level, for the HUD.
@@ -129,6 +131,15 @@ public final class AudioEngine: @unchecked Sendable {
     public func apply(_ settings: Settings) -> [String] {
         guard !recording.current else { return activeMics }
         processing.sync { chunker.config = Chunker.Config(settings) }
+        if settings.sampleRate != sampleRate.current {
+            // Captures convert to one rate; a new rate means new captures.
+            sampleRate.update { $0 = settings.sampleRate }
+            for (name, capture) in captures.current {
+                capture.stop()
+                captures.update { $0[name] = nil }
+                processing.sync { chunker.removeMic(name) }
+            }
+        }
         devices.sync { wanted = Array(NSOrderedSet(array: settings.enabledMics)) as? [String] ?? settings.enabledMics }
         syncDevices()
         return activeMics
@@ -161,7 +172,7 @@ public final class AudioEngine: @unchecked Sendable {
         }
         for name in wanted where captures.read({ $0[name] == nil }) {
             guard let device = CoreAudioDevices.find(name, in: available) else { continue }
-            let capture = MicCapture(name: name, device: device, sampleRate: 16000) { [weak self] block, heard in
+            let capture = MicCapture(name: name, device: device, sampleRate: sampleRate.current) { [weak self] block, heard in
                 guard let self else { return }
                 self.processing.async { self.feed(name, block, heard) }
             }

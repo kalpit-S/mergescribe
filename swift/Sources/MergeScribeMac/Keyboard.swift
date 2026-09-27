@@ -51,8 +51,10 @@ public final class MacTextOutput: TextOutput, @unchecked Sendable {
     /// waiting could deadlock against a main thread that is itself waiting on the session.
     public func copyToClipboard(_ text: String) {
         guard !text.isEmpty else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        Pasteboard.lock.withLock {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
     }
 
     public func notify(_ message: String) {
@@ -62,6 +64,13 @@ public final class MacTextOutput: TextOutput, @unchecked Sendable {
     public func playBusySound() {
         DispatchQueue.main.async { NSSound(named: "Basso")?.play() }
     }
+}
+
+/// The pasteboard is shared by overlapping dictations: one may be handing text over while the
+/// next probes for a selection with ⌘C. Each takes this lock, so the probe can't mistake the
+/// hand-over for a selection, or put the old contents back over it.
+enum Pasteboard {
+    static let lock = NSLock()
 }
 
 /// macOS notifications. They need an app bundle; an unbundled development build logs instead.
@@ -119,6 +128,7 @@ public final class Hotkey: @unchecked Sendable {
     private let machine: InputStateMachine
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
+    private var loop: CFRunLoop?
 
     public init?(trigger name: String, machine: InputStateMachine) {
         guard let key = Self.keys[name.lowercased()] else { return nil }
@@ -141,17 +151,36 @@ public final class Hotkey: @unchecked Sendable {
             return false
         }
         self.tap = tap
-        source = CFMachPortCreateRunLoopSource(nil, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
+        let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        self.source = source
+        // Its own thread and run loop: the tap must answer promptly even while the main thread
+        // is busy (opening a microphone, say), or macOS switches it off and a release is lost.
+        let ready = DispatchSemaphore(value: 0)
+        let box = Unchecked((tap, source))
+        let thread = Thread { [weak self] in
+            let loop = CFRunLoopGetCurrent()
+            self?.loop = loop
+            CFRunLoopAddSource(loop, box.value.1, .commonModes)
+            CGEvent.tapEnable(tap: box.value.0, enable: true)
+            ready.signal()
+            CFRunLoopRun()
+        }
+        thread.name = "MergeScribe hotkey"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+        ready.wait()
         return true
     }
 
     public func stop() {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
-        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        if let loop {
+            if let source { CFRunLoopRemoveSource(loop, source, .commonModes) }
+            CFRunLoopStop(loop)
+        }
         tap = nil
         source = nil
+        loop = nil
     }
 
     /// In the tap's callback, which must return quickly: macOS switches off a tap that keeps

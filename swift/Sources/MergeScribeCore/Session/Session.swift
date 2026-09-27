@@ -472,7 +472,7 @@ public final class Session: @unchecked Sendable {
         guard let text = stream.prepare(text) else { return }
         waitForTurnBlocking()
         // Held once focus is lost, and from then on: the text can't resume with a hole in it.
-        if !stream.stillInPlace({ [self] in inPlaceNow() }) {
+        if !stream.stillInPlace({ [self] in inPlaceNow(midStream: true) }) {
             stream.hold(text)
             return
         }
@@ -586,16 +586,22 @@ public final class Session: @unchecked Sendable {
     /// True when the words can go where the dictation started, bringing that window back
     /// first if the speaker moved on to read something. False only when it can't come back.
     func inPlace() async -> Bool {
-        await blocking { [self] in inPlaceNow(bringBack: true) }
+        if await blocking({ [self] in inPlaceNow() }) { return true }
+        // Bringing a window back moves focus, so it waits for this dictation's turn: an
+        // earlier one may still be typing into the window that has focus now.
+        await myTurn()
+        return await blocking { [self] in inPlaceNow(bringBack: true) }
     }
 
     /// Checked between streamed tokens (at most every 100ms by StreamState): here or not,
     /// without bringing anything back mid-stream.
-    func inPlaceNow(bringBack: Bool = false) -> Bool {
+    func inPlaceNow(bringBack: Bool = false, midStream: Bool = false) -> Bool {
         let (origin, context) = state.read { ($0.origin, $0.context) }
         let focus = services.focus
         guard let origin else {
-            guard bringBack else { return true }
+            // Mid-stream there is nothing to compare against; before output, the same app
+            // is as close as it gets.
+            if midStream { return true }
             guard let context, let current = focus.appContext() else { return false }
             return current.bundleId == context.bundleId
         }

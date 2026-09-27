@@ -194,13 +194,14 @@ public struct Chunker: Sendable {
 
         guard isRecording else { return nil }
         mics[i].chunk.append(block)
-        guard config.chunkOnSilence else { return nil }
 
-        // Any mic hearing speech holds the chunk open.
+        // Any mic hearing speech holds the chunk open. Detection runs even when chunks aren't
+        // cut on silence: it also decides whether the final chunk holds speech at all.
         if !isSilence(block, micIndex: i, updateLevel: true) {
             lastSpeech = now
             chunkHasSpeech = true
         }
+        guard config.chunkOnSilence else { return nil }
         // The primary mic alone decides when to cut, so chunks aren't emitted twice.
         guard mic == primaryMic else { return nil }
         let silence = now - lastSpeech

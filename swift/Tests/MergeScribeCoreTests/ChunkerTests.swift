@@ -124,6 +124,19 @@ private func chunker(_ mics: [String] = ["mic1"], _ change: (inout Chunker.Confi
         #expect(final.hasSpeech)
     }
 
+    @Test func withoutSplittingOnSilenceSpeechIsStillHeard() {
+        // The detector also decides whether the last chunk holds speech; turning off
+        // chunking must not make every dictation look silent.
+        var c = chunker { $0.chunkOnSilence = false }
+        for i in 0..<30 { _ = c.feed("mic1", square(0.001), now: Double(i) * block) }
+        c.startRecording(now: 30 * block)
+        var emitted = 0
+        for i in 30..<130 { if c.feed("mic1", square(i < 60 ? 0.1 : 0.001), now: Double(i) * block) != nil { emitted += 1 } }
+        let final = c.stopRecording()
+        #expect(emitted == 0, "no chunks are cut")
+        #expect(final.hasSpeech)
+    }
+
     @Test func removingThePrimaryPromotesTheNext() {
         var c = chunker(["a", "b"])
         #expect(c.primaryMic == "a")

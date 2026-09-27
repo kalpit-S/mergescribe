@@ -419,7 +419,8 @@ import Testing
     }
 
     @Test func movedOnItBringsTheWindowBackAndTypesThere() async {
-        let rig = rig(here: [false, true], comesBack: true)
+        // Not there on the first look, nor after waiting its turn: bring it back.
+        let rig = rig(here: [false, false, true], comesBack: true)
         await session(rig).outputAsync("Ship it Friday.")
         #expect(rig.focus.returned.count == 1 && rig.output.typed == "Ship it Friday." && rig.output.clipboard.count == 0)
     }
@@ -465,6 +466,20 @@ import Testing
         _ = rig.focus.appContext()      // the first read is the start's
         await s.outputAsync("Hello")
         #expect(rig.output.clipboard.all == ["Hello"] && rig.output.notifications.count == 1)
+    }
+
+    @Test func aLaterDictationChangesFocusOnlyOnItsTurn() async {
+        // An earlier dictation may still be typing into the window that has focus.
+        let rig = rig(here: [false, false, true], comesBack: true)
+        let earlier = rig.order.take()
+        let s = session(rig)
+        s.state.update { $0.ticket = rig.order.take() }
+        let check = Task { await s.inPlace() }
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(rig.focus.returned.count == 0, "the window was brought back while the earlier dictation typed")
+        rig.order.done(earlier)
+        #expect(await check.value)
+        #expect(rig.focus.returned.count == 1)
     }
 
     @Test func movingToAnotherWindowStopsTypingAndHandsOverTheRest() async {

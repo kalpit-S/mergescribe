@@ -127,7 +127,11 @@ final class App: NSObject, NSApplicationDelegate {
         let mics = audio.apply(settings)
         let recognizers = Self.recognizers(for: settings, http: http, vocabulary: vocabulary)
         guard !mics.isEmpty else { return showError("No active microphones") }
-        guard !recognizers.isEmpty else { return showError("No transcription providers") }
+        guard !recognizers.isEmpty else {
+            return showError(settings.openrouterApiKey.isEmpty
+                ? "Add an OpenRouter key in Settings > Models to transcribe"
+                : "Turn on a transcription model in Settings > Models (Parakeet isn't in this build yet)")
+        }
         guard let session = manager.startSession(settings: settings, recognizers: recognizers) else { return }
         current = session
         // Capture first, then let the session gather context: the press-to-record gap is

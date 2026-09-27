@@ -31,7 +31,13 @@ public final class HUD: SessionObserver, @unchecked Sendable {
     /// True when the HUD carries recording state, so the menu bar can stay quiet.
     public var isShowing: Bool { lock.withLock { enabled } }
 
-    public func setEnabled(_ on: Bool) { lock.withLock { enabled = on } }
+    public func setEnabled(_ on: Bool) {
+        let wasOn: Bool = lock.withLock { defer { enabled = on }; return enabled }
+        // Switched off while showing: let it spring away rather than freeze on screen.
+        if wasOn && !on {
+            DispatchQueue.main.async { [self] in MainActor.assumeIsolated { panel?.setStatus("idle") } }
+        }
+    }
 
     /// The live panel's layers as an image, for checking the composition.
     @MainActor public func captureLayers() -> CGImage? { panel?.captureLayers() }
