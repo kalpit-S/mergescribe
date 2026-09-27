@@ -37,7 +37,13 @@ DEFAULT_BLOCKSIZE = 1024  # Number of frames per audio callback
 SILENCE_THRESHOLD_DB = -35  # dB threshold for silence detection
 MIN_CHUNK_SECONDS = 3.0  # Don't emit chunks shorter than this
 TRAILING_SILENCE_SECONDS = 0.5  # Keep this much silence at end of chunk
-MAX_CHUNK_SECONDS = 30.0  # Force chunk emit after this duration
+MAX_CHUNK_SECONDS = 30.0  # Start looking for somewhere to cut after this
+# Cutting the moment the cap is reached lands mid-word: 35% of chunks were cut
+# that way, and the correction model then spent 18% of its edits within two
+# words of a seam, repairing damage the chunker created. Once a chunk is
+# overdue, wait for the next gap between words and cut there instead.
+SEAM_SILENCE_SECONDS = 0.15   # A breath between words is enough to hide a cut
+HARD_MAX_CHUNK_SECONDS = 45.0  # Nobody talks this long without a gap; cut anyway
 
 # =============================================================================
 # Pre-roll Settings
@@ -119,11 +125,15 @@ class AudioEngine:
         # Stores recent dB values to compute each mic's noise floor
         self._noise_floor_samples: Dict[str, deque] = {}
         self._noise_floor_cache: Dict[str, float] = {}  # Cached floor values
+        self._noise_floor_counts: Dict[str, int] = {}   # blocks seen, to pace the recompute
+        # A chunk being handed to the session with the lock released; stop_recording
+        # waits for it, or a release in that instant would finalize without it.
+        self._handover = threading.Condition(self._lock)
+        self._delivering = False
         self._speech_active: Dict[str, bool] = {}  # Hysteresis state per mic
 
         # Disconnect/reconnect tracking
         self._stream_error_counts: Dict[str, int] = {}
-        self._known_connected: set = set()  # mics with active streams
         self._monitor_thread: Optional[threading.Thread] = None
         self._monitor_stop: Optional[threading.Event] = None
 
@@ -133,7 +143,6 @@ class AudioEngine:
 
         # Computed values
         self._preroll_samples = int(config.preroll_seconds * config.sample_rate)
-        self._silence_samples = int(config.silence_threshold * config.sample_rate)
 
     def initialize(self) -> List[str]:
         """
@@ -209,7 +218,6 @@ class AudioEngine:
                 self._noise_floor_cache[mic_name] = FALLBACK_NOISE_FLOOR_DB
                 self._speech_active[mic_name] = False
                 self._stream_error_counts[mic_name] = 0
-                self._known_connected.add(mic_name)
                 if self._primary_mic is None:
                     self._primary_mic = mic_name
 
@@ -227,10 +235,10 @@ class AudioEngine:
             self.preroll_buffers.pop(mic_name, None)
             self.current_chunk.pop(mic_name, None)
             self._noise_floor_samples.pop(mic_name, None)
+            self._noise_floor_counts.pop(mic_name, None)
             self._noise_floor_cache.pop(mic_name, None)
             self._speech_active.pop(mic_name, None)
             self._stream_error_counts.pop(mic_name, None)
-            self._known_connected.discard(mic_name)
 
             if self._primary_mic == mic_name:
                 self._primary_mic = next(iter(self.streams), None)
@@ -319,7 +327,6 @@ class AudioEngine:
 
     def start_recording(self) -> None:
         """Begin capturing audio. Dumps preroll into current chunk."""
-        import time
         with self._lock:
             self.is_recording = True
             self.last_speech_time = time.time()  # Assume speech at start
@@ -328,9 +335,38 @@ class AudioEngine:
             # Dump preroll into current chunk, then clear to prevent stale reuse
             # This fixes a bug where Bluetooth mics (AirPods) that go idle between
             # sessions would have stale audio from previous sessions in their preroll
+            #
+            # A mic that stops delivering (AirPods idling) also stops refreshing
+            # its pre-roll, which would then replay whatever it last heard, maybe
+            # minutes ago. Pre-roll is only ever the moment before the press.
+            now, horizon = time.monotonic(), self.config.preroll_seconds + 0.25
             for mic_name, preroll in self.preroll_buffers.items():
-                self.current_chunk[mic_name] = list(preroll)
+                self.current_chunk[mic_name] = [audio for heard, audio in preroll if now - heard <= horizon]
                 preroll.clear()
+
+    def _deliver_chunk(self) -> bool:
+        """
+        Hand the current chunk to the session. Called with the lock held, which
+        is released while the session takes it (it may be slow, and must not
+        block the audio of other mics). False if recording stopped meanwhile.
+        """
+        chunk = self._flush_current_chunk()
+        callback = self.on_chunk_ready
+        if not (callback and chunk):
+            return True
+        self._delivering = True
+        self._lock.release()
+        try:
+            callback(chunk)
+        except Exception as e:
+            # Don't let a callback failure kill the audio stream, but never
+            # swallow it silently either.
+            print(f"[Audio] Chunk callback error: {e}")
+        finally:
+            self._lock.acquire()
+            self._delivering = False
+            self._handover.notify_all()
+        return self.is_recording
 
     def stop_recording(self) -> AudioChunk:
         """
@@ -342,6 +378,10 @@ class AudioEngine:
             Dict mapping mic names to audio arrays
         """
         with self._lock:
+            # A chunk mid-handover has already left the buffers; finalizing
+            # before the session has it would drop its speech.
+            while self._delivering:
+                self._handover.wait(1.0)
             self.is_recording = False
             self.on_chunk_ready = None  # Disconnect immediately
             self.last_speech_time = 0.0
@@ -368,10 +408,10 @@ class AudioEngine:
             self._primary_mic = None
             self.last_speech_time = 0.0
             self._noise_floor_samples.clear()
+            self._noise_floor_counts.clear()
             self._noise_floor_cache.clear()
             self._speech_active.clear()
             self._stream_error_counts.clear()
-            self._known_connected.clear()
 
         # Close streams outside of lock
         for mic_name, stream in streams_to_close:
@@ -414,7 +454,11 @@ class AudioEngine:
                 return
 
             # Always update preroll buffer (keeps it fresh for next session)
-            self.preroll_buffers[mic_name].append(audio)
+            self.preroll_buffers[mic_name].append((time.monotonic(), audio))
+            # The room is measured all the time, not only while dictating:
+            # otherwise the first dictation after launch, or on a new mic,
+            # judges speech against a fixed guess and can discard quiet speech.
+            self._sample_noise_floor(audio, mic_name)
 
             if not self.is_recording:
                 return
@@ -462,7 +506,10 @@ class AudioEngine:
                 # talking continuously means nothing transcribes until the key
                 # is released — 28% of sessions over 20s emitted a single
                 # chunk. Force a cut so transcription keeps overlapping speech.
-                too_long = chunk_duration >= MAX_CHUNK_SECONDS
+                overdue = chunk_duration >= MAX_CHUNK_SECONDS
+                at_seam = overdue and silence_duration >= SEAM_SILENCE_SECONDS
+                forced = chunk_duration >= HARD_MAX_CHUNK_SECONDS
+                too_long = at_seam or forced
 
                 if paused or too_long:
                     if paused:
@@ -473,31 +520,16 @@ class AudioEngine:
                             self._trim_trailing_samples(samples_to_trim)
 
                     if LOG_CHUNK_EVENTS:
-                        reason = "pause" if paused else f"max {MAX_CHUNK_SECONDS:.0f}s"
+                        reason = ("pause" if paused
+                                  else f"seam past {MAX_CHUNK_SECONDS:.0f}s" if at_seam
+                                  else f"hard cap {HARD_MAX_CHUNK_SECONDS:.0f}s")
                         print(f"[Audio] === CHUNK EMIT ({reason}) === duration={chunk_duration:.2f}s, silence={silence_duration:.2f}s")
-
-                    # Emit chunk
-                    chunk = self._flush_current_chunk()
-                    callback = self.on_chunk_ready
 
                     # Reset speech time to now (start fresh for next chunk)
                     self.last_speech_time = current_time
                     self._chunk_has_speech = False
-
-                    if callback and chunk:
-                        # Release lock before callback to avoid deadlock
-                        self._lock.release()
-                        try:
-                            callback(chunk)
-                        except Exception as e:
-                            # Don't let a callback failure kill the audio
-                            # stream, but never swallow it silently either.
-                            print(f"[Audio] Chunk callback error: {e}")
-                        finally:
-                            self._lock.acquire()
-                        # stop_recording() may have run while unlocked
-                        if not self.is_recording:
-                            return
+                    if not self._deliver_chunk():
+                        return
 
     def _is_silence(self, audio: np.ndarray, mic_name: str = "") -> bool:
         """
@@ -515,14 +547,6 @@ class AudioEngine:
             return True
 
         db = 20 * np.log10(rms)
-
-        # Update noise floor samples for this mic (always, even when not recording)
-        if mic_name in self._noise_floor_samples:
-            self._noise_floor_samples[mic_name].append(db)
-
-            # Recompute noise floor periodically (every ~1s = ~15 samples)
-            if len(self._noise_floor_samples[mic_name]) % 15 == 0:
-                self._update_noise_floor(mic_name)
 
         # Determine silence threshold
         adaptive_enabled = self._get_bool_config(
@@ -576,6 +600,21 @@ class AudioEngine:
                     print(f"[Audio] {mic_name}: {db:.1f}dB ({status}) | silence={silence_duration:.2f}s")
 
         return is_silent
+
+    def _sample_noise_floor(self, audio: np.ndarray, mic_name: str) -> None:
+        """Record this block's level and recompute the floor about once a second."""
+        if mic_name not in self._noise_floor_samples or len(audio) == 0:
+            return
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        if rms == 0:
+            return
+        self._noise_floor_samples[mic_name].append(20 * np.log10(rms))
+        # A counter, not len(): once the window is full its length never
+        # changes, and "len % 15" stopped the floor adapting for good.
+        count = self._noise_floor_counts.get(mic_name, 0) + 1
+        self._noise_floor_counts[mic_name] = count
+        if count % 15 == 0:
+            self._update_noise_floor(mic_name)
 
     def _update_noise_floor(self, mic_name: str) -> None:
         """

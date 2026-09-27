@@ -8,6 +8,33 @@ from typing import Optional, Callable
 
 import rumps
 
+# SF Symbols, drawn as template images so they take the menu bar's own colour
+# in light and dark mode. With the HUD on, the bar only ever shows "idle";
+# the others are for anyone who switches the HUD off.
+_SYMBOLS = {
+    "idle": "waveform",
+    "recording": "waveform.circle.fill",
+    "processing": "ellipsis.circle",
+    "error": "exclamationmark.triangle",
+}
+# Where SF Symbols aren't available (before macOS 11), plain text still works.
+_FALLBACK = {"idle": "🎤", "recording": "🔴", "processing": "⚡", "error": "❌"}
+
+
+def _symbol(name: str):
+    """A template NSImage for an SF Symbol, sized for the menu bar, or None."""
+    try:
+        from AppKit import NSFontWeightRegular, NSImage, NSImageSymbolConfiguration
+        image = NSImage.imageWithSystemSymbolName_accessibilityDescription_(name, "MergeScribe")
+        if image is None:
+            return None
+        image = image.imageWithSymbolConfiguration_(
+            NSImageSymbolConfiguration.configurationWithPointSize_weight_(14.0, NSFontWeightRegular))
+        image.setTemplate_(True)
+        return image
+    except Exception:
+        return None
+
 
 class MenuBarApp:
     """
@@ -26,13 +53,6 @@ class MenuBarApp:
         self._app: Optional[rumps.App] = None
         self._current_status = "idle"
 
-        # Status icons
-        self._icons = {
-            "idle": "🎤",
-            "recording": "🔴",
-            "processing": "⚡",
-            "error": "❌",
-        }
 
     def run(self) -> None:
         """Run the menu bar app (blocks)."""
@@ -47,10 +67,8 @@ class MenuBarApp:
             status: One of "idle", "recording", "processing", "error"
         """
         self._current_status = status
-        icon = self._icons.get(status, "🎤")
-
         if self._app:
-            self._app.title = icon
+            self._app.show_status(status)
 
     def show_notification(self, title: str, message: str) -> None:
         """Show macOS notification."""
@@ -69,8 +87,9 @@ class _MergeScribeRumpsApp(rumps.App):
     """Internal rumps app implementation."""
 
     def __init__(self, parent: MenuBarApp):
-        super().__init__("🎤")
+        super().__init__("MergeScribe", title=None, quit_button="Quit MergeScribe")
         self.parent = parent
+        self.show_status("idle")
 
         # Build menu
         self.menu = [
@@ -82,6 +101,21 @@ class _MergeScribeRumpsApp(rumps.App):
 
         # Store reference to status item for updates
         self._status_item = self.menu["Status: Idle"]
+
+    def show_status(self, status: str) -> None:
+        """Put the glyph for this status in the menu bar."""
+        image = _symbol(_SYMBOLS.get(status, "waveform"))
+        if image is None:
+            self.title = _FALLBACK.get(status, "🎤")
+            return
+        # rumps draws whatever NSImage it holds here, and redraws on request.
+        self._icon_nsimage = image
+        self._title = None
+        try:
+            self._nsapp.setStatusBarIcon()
+            self._nsapp.setStatusBarTitle()
+        except AttributeError:
+            pass   # not running yet; it picks the image up when it starts
 
     def _settings_clicked(self, _) -> None:
         """Handle settings menu click."""

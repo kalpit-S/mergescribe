@@ -9,7 +9,7 @@ caller falls back to the raw transcript.
 import json
 import threading
 import time
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import requests
 
@@ -19,29 +19,20 @@ from .types import TranscriptionResult, AppContext, ConfigSnapshot, LLMCorrectio
 # Persistent session for connection reuse (saves ~70-100ms per request)
 _openrouter_session = requests.Session()
 
-OPENROUTER_MODEL_DEFAULT = "google/gemini-3.1-flash-lite"
+OPENROUTER_MODEL_DEFAULT = "openai/gpt-6-luna"
 
 # Abort a stream that stops producing content while the connection stays open.
 # Observed once in ~15 calls: TTFT 0.71s then a 19s mid-stream stall, which
 # dribbles text into the user's document with no way to tell it's hung.
 _STREAM_STALL_SECONDS = 8.0
 
-# Correction models whose reasoning/thinking should be disabled outright.
-# Gemini 3.5 and newer (3.5/3.6/3.7) reject reasoning:none with a 400
-# ("Reasoning is mandatory for this endpoint") and default to a large thinking
-# budget if the field is omitted — measured 11.9s vs 1.6s on 3.7-flash. Those
-# need openrouter_correction_reasoning_effort = "minimal" in settings instead.
-OPENROUTER_NO_REASONING_MODELS = {
-    "x-ai/grok-4.3",
-    "google/gemini-3.1-flash-lite",
-    "google/gemini-3.1-flash-lite-preview",
-    "openai/gpt-5.4-mini",
-    "openai/gpt-5.6-luna",
-    "openai/gpt-5.6-terra",
-    "z-ai/glm-5.2",
-    "anthropic/claude-opus-4.8-fast",
-    "minimax/minimax-m2.7:nitro",
-}
+# Correction is a rewrite, and thinking only adds latency (a Gemini that thinks
+# by default measured 11.9s against 1.6s with it off), so reasoning is asked to
+# be off unless the user chose otherwise. Some models refuse "none" outright -
+# Gemini 3.5 and newer, Grok 4.7, GLM 5.3: "reasoning is mandatory" - and those
+# get "minimal" instead. Which ones is learned from the refusal, not kept in a
+# list that goes stale with every release.
+_NEEDS_SOME_REASONING: set = set()
 
 
 def _config_str(config: ConfigSnapshot, key: str, default: str = "") -> str:
@@ -75,48 +66,43 @@ Typed text drops the scaffolding of speech: filler sounds, filler words that car
 
 Everything else is theirs. Keep their words, slang, tone, and phrasing, and never add words they didn't say. Fix punctuation, grammar, and clear mishearings; when several transcriptions of the same audio are given, use them together to work out what was said. Recognizers often drop or swap short words like "not", "never" and "no" ("no reason" heard as "a reason"), so if any transcription has a negation the others lack, keep it: losing one reverses the meaning. Unfamiliar names are usually real products, people, or jargon, so keep them. When unsure, keep what was said.
 
-Return only the cleaned text, as one continuous line with no line breaks, em dashes, markdown, or commentary."""
+Never use an em dash or en dash. Where the speaker breaks off, restarts or changes course, end the sentence there or use a comma, as a person typing would.
 
-
-# Appended to the system prompt when an on-screen field inventory is provided
-ROUTING_PROTOCOL = """
-
-Output routing: an inventory of on-screen text input fields is provided.
-Decide where this dictation belongs based on its content and each field's app, window, label, and contents.
-Your reply MUST start with a first line of exactly "TARGET: <field-id>" (e.g. "TARGET: f3"), or "TARGET: focused" for the field the user is currently in ("Active application" above tells you where that is).
-From the second line onward, output only the corrected transcript.
-If the user explicitly says where to put it ("put this in Slack", "send to the terminal"), obey that — and don't transcribe the routing instruction itself.
-Otherwise prefer "TARGET: focused" unless the content clearly belongs in a specific other field.
-"focused" is always valid even when the focused window has no entry in the inventory — if the dictation plausibly continues whatever the Active application/Window shows, stay focused rather than moving it somewhere merely plausible.
-The entry marked FOCUSED is what the user is looking at; entries marked as background windows are probably hidden behind it, so text sent there lands somewhere the user cannot see and has to be undone. Treat those as a last resort: pick one only when the user names it, or when the content plainly cannot belong in the focused field. Topical similarity alone is not enough."""
+Return only the cleaned text, as one continuous line with no line breaks, markdown, or commentary."""
 
 
 DEFAULT_EDITING_PROMPT = "You are a text editing assistant. Apply the user's requested change precisely and return only the edited text."
 
 
-def build_system_prompt(
-    config: ConfigSnapshot,
-    field_targets: Optional[list] = None,
-    custom_instructions: str = "",
-) -> str:
-    """Assemble the system prompt: base + routing protocol + user preferences."""
+def _finish_without_streaming(shown: str, prompt: str, system_prompt: str,
+                              config: ConfigSnapshot, on_delta: Optional[Callable[[str], None]]) -> str:
+    """
+    Recover a correction whose stream broke after typing began: ask again
+    without streaming, and type only the rest if the new answer continues what
+    is on screen. Otherwise raise, so the caller can hand over the whole text.
+    """
+    print("[LLM] Stream broke after typing began; finishing it without streaming")
+    full, complete = _stream_openrouter(prompt, system_prompt, config)
+    if complete and full.startswith(shown):
+        if on_delta is not None and len(full) > len(shown):
+            on_delta(full[len(shown):])
+        return full
+    raise CorrectionInterrupted(shown, full if complete else "")
+
+
+def build_system_prompt(config: ConfigSnapshot, custom_instructions: str = "") -> str:
+    """Assemble the system prompt: base + user preferences + learned vocabulary."""
     configured = _config_str(config, "system_prompt")
     system_prompt = configured if configured else DEFAULT_SYSTEM_CONTEXT
-
-    if field_targets:
-        system_prompt += ROUTING_PROTOCOL
-        routing_instructions = _config_str(config, "routing_instructions").strip()
-        if routing_instructions:
-            system_prompt += f"\nUser routing preferences (follow these):\n{routing_instructions}"
 
     if custom_instructions:
         system_prompt += f"\n\nUser preferences:\n{custom_instructions}"
 
     if _config_bool(config, "learn_vocabulary", True):
-        from .vocabulary import learned_corrections, vocabulary_prompt
-        learned = vocabulary_prompt(learned_corrections())
-        if learned:
-            system_prompt += f"\n\n{learned}"
+        from .vocabulary import learned_corrections, supplied_prompt, supplied_terms, vocabulary_prompt
+        for evidence in (vocabulary_prompt(learned_corrections()), supplied_prompt(supplied_terms())):
+            if evidence:
+                system_prompt += f"\n\n{evidence}"
 
     return system_prompt
 
@@ -126,10 +112,8 @@ def correct_with_llm(
     context: Optional[AppContext],
     config: ConfigSnapshot,
     on_delta: Optional[Callable[[str], None]] = None,
-    history_context: str = "",
     on_metadata: Optional[Callable[[LLMCorrectionResult], None]] = None,
     custom_instructions: str = "",
-    field_targets: Optional[list] = None,
     on_generation_metadata: Optional[Callable[[str, dict], None]] = None,
 ) -> str:
     """
@@ -141,10 +125,8 @@ def correct_with_llm(
         context: Active application context (for prompt customization)
         config: Configuration snapshot
         on_delta: Optional callback for streaming tokens
-        history_context: Recent transcriptions for continuity
         on_metadata: Optional callback to receive LLM result metadata
         custom_instructions: User's custom instructions
-        field_targets: On-screen text fields for output routing
         on_generation_metadata: Called off-thread with (generation_id, usage)
             once OpenRouter reports cost/provider details
     """
@@ -156,8 +138,8 @@ def correct_with_llm(
         print("[LLM] No OpenRouter API key configured")
         return ""
 
-    prompt = _build_prompt(results, context, history_context, field_targets)
-    system_prompt = build_system_prompt(config, field_targets, custom_instructions)
+    prompt = _build_prompt(results, context)
+    system_prompt = build_system_prompt(config, custom_instructions)
 
     total_words = max(len(r.text.split()) for r in results)
     est_tokens = (len(prompt) + len(system_prompt)) // 4
@@ -166,26 +148,31 @@ def correct_with_llm(
     start = time.perf_counter()
     first_token_at: List[float] = []
 
+    shown: List[str] = []   # every token handed to on_delta, i.e. on screen
+
     def timing_delta(token: str) -> None:
         if not first_token_at:
             first_token_at.append(time.perf_counter())
         if on_delta is not None:
+            shown.append(token)
             on_delta(token)
 
-    metadata: dict = {}
-    result = _call_openrouter(
-        prompt, system_prompt, config, timing_delta,
-        metadata_out=metadata, on_generation_metadata=on_generation_metadata,
-    )
-
-    # One retry with a fresh attempt (transient errors, stream hiccups)
-    if not result:
-        print("[LLM] Retrying OpenRouter")
-        metadata = {}
-        result = _call_openrouter(
+    result = ""
+    for attempt in range(2):
+        metadata: dict = {}
+        result, complete = _stream_openrouter(
             prompt, system_prompt, config, timing_delta,
             metadata_out=metadata, on_generation_metadata=on_generation_metadata,
         )
+        if complete and result:
+            break
+        if shown:
+            # Part of it is already typed: streaming again would type it twice.
+            result = _finish_without_streaming("".join(shown), prompt, system_prompt, config, on_delta)
+            break
+        result = ""
+        if attempt == 0:
+            print("[LLM] Retrying OpenRouter")
 
     if not result:
         print("[LLM] Correction failed")
@@ -193,8 +180,14 @@ def correct_with_llm(
 
     elapsed = (time.perf_counter() - start) * 1000
     ttft_s = (first_token_at[0] - start) if first_token_at else elapsed / 1000
+    # Say what actually served it, not what was asked for: ":nitro" and the
+    # provider preferences mean the two can differ.
+    served = metadata.get("resolved_model") or model
+    provider = metadata.get("backend_provider")
     print(
-        f"[LLM] {model} | in: {total_words} words, ~{est_tokens} tok prompt | "
+        f"[LLM] {served}{f' @{provider}' if provider else ''}"
+        f"{f' (asked {model})' if served != model else ''} | "
+        f"in: {total_words} words, ~{est_tokens} tok prompt | "
         f"TTFT {ttft_s:.2f}s | total {elapsed/1000:.2f}s"
     )
 
@@ -221,25 +214,38 @@ def correct_with_llm(
 def _build_prompt(
     results: List[TranscriptionResult],
     context: Optional[AppContext],
-    history_context: str = "",
-    field_targets: Optional[list] = None,
 ) -> str:
-    """Build the LLM prompt from transcription results."""
+    """
+    Build the LLM prompt from transcription results.
 
-    # Deduplicate results by normalized text to save tokens
-    seen_normalized: set = set()
-    unique_results: List[TranscriptionResult] = []
-    for r in results:
-        normalized = " ".join(r.text.lower().split())
-        if normalized and normalized not in seen_normalized:
-            seen_normalized.add(normalized)
-            unique_results.append(r)
+    Earlier dictations are deliberately not included: the model regurgitated
+    them instead of transcribing the current one - 14 of 42 captured
+    corrections leaked, worst case 187 words of a previous dictation for a
+    4-word utterance. A short input can't outweigh fluent nearby text.
+    """
 
-    transcriptions = []
-    for r in unique_results:
-        transcriptions.append(f"[{r.provider}/{r.mic}]: {r.text}")
+    def listing(group: List[TranscriptionResult]) -> List[str]:
+        """One line per distinct reading; identical ones only cost tokens."""
+        seen: set = set()
+        lines = []
+        for r in group:
+            normalized = " ".join(r.text.lower().split())
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                lines.append(f"[{r.provider}/{r.mic}]: {r.text}")
+        return lines
 
-    transcription_text = "\n".join(transcriptions)
+    # A long dictation is transcribed in consecutive parts. Listing them flat
+    # would read as alternatives of one piece of audio, and deduplicating
+    # across them would drop a sentence the speaker really said twice.
+    parts = sorted({r.chunk for r in results})
+    if len(parts) > 1:
+        blocks = [f"Part {n}:\n" + "\n".join(listing([r for r in results if r.chunk == part]))
+                  for n, part in enumerate(parts, 1)]
+        transcription_text = ("The audio came in consecutive parts; each lists what the recognizers "
+                              "heard of that part.\n" + "\n".join(blocks))
+    else:
+        transcription_text = "\n".join(listing(results))
 
     context_parts = []
 
@@ -248,19 +254,6 @@ def _build_prompt(
         if context.window_title:
             context_parts.append(f"Window: {context.window_title}")
 
-    if history_context:
-        context_parts.append(
-            "### PRIOR DICTATIONS (already delivered; context only)\n"
-            "Never transcribe, continue, or repeat any of this. It exists only to\n"
-            "disambiguate pronouns and names in the new audio below.\n"
-            f"{history_context}\n### END PRIOR DICTATIONS"
-        )
-
-    if field_targets:
-        from .fields import describe_fields_for_prompt
-        context_parts.append(
-            f"Available text input fields:\n{describe_fields_for_prompt(field_targets)}"
-        )
 
     context_text = "\n".join(context_parts) if context_parts else ""
 
@@ -272,6 +265,20 @@ def _build_prompt(
     return "\n\n".join(parts)
 
 
+class CorrectionInterrupted(Exception):
+    """
+    The correction's stream broke after some of it had already been typed.
+
+    shown is what reached the screen; complete is the whole correction if a
+    second attempt produced one that doesn't continue what was shown, else "".
+    """
+
+    def __init__(self, shown: str, complete: str):
+        super().__init__("correction stream interrupted after typing began")
+        self.shown = shown
+        self.complete = complete
+
+
 def _call_openrouter(
     prompt: str,
     system_prompt: str,
@@ -281,18 +288,39 @@ def _call_openrouter(
     metadata_out: Optional[dict] = None,
     on_generation_metadata: Optional[Callable[[str, dict], None]] = None,
 ) -> str:
-    """Call OpenRouter's chat completions API with streaming."""
+    """The whole reply, or "" if it didn't arrive complete."""
+    text, complete = _stream_openrouter(prompt, system_prompt, config, on_delta, timeout,
+                                        metadata_out, on_generation_metadata)
+    return text if complete else ""
+
+
+def _stream_openrouter(
+    prompt: str,
+    system_prompt: str,
+    config: ConfigSnapshot,
+    on_delta: Optional[Callable[[str], None]] = None,
+    timeout: int = 15,
+    metadata_out: Optional[dict] = None,
+    on_generation_metadata: Optional[Callable[[str, dict], None]] = None,
+) -> Tuple[str, bool]:
+    """
+    Call OpenRouter's chat completions API with streaming.
+
+    Returns (text, complete). complete is False when the stream broke,
+    stalled or reported an error partway - text is then only what arrived.
+    """
     if not config.openrouter_api_key:
-        return ""
+        return "", False
 
     model = _config_str(config, "openrouter_correction_model", OPENROUTER_MODEL_DEFAULT)
     provider_order = _config_str_list(config, "openrouter_correction_provider_order")
     allow_fallbacks = _config_bool(config, "openrouter_correction_allow_fallbacks", True)
-    reasoning_effort = _config_str(config, "openrouter_correction_reasoning_effort").strip().lower()
-    # ":nitro" and friends are routing hints on the same underlying model, so
-    # the base id decides whether reasoning has to be switched off.
-    if not reasoning_effort and model.split(":", 1)[0] in OPENROUTER_NO_REASONING_MODELS:
-        reasoning_effort = "none"
+    # ":nitro" and friends are routing hints on the same underlying model.
+    base_model = model.split(":", 1)[0]
+    reasoning_effort = (_config_str(config, "openrouter_correction_reasoning_effort").strip().lower()
+                        or "none")
+    if reasoning_effort == "none" and base_model in _NEEDS_SOME_REASONING:
+        reasoning_effort = "minimal"
 
     if metadata_out is not None:
         metadata_out.update({
@@ -323,8 +351,7 @@ def _call_openrouter(
             "allow_fallbacks": allow_fallbacks,
         }
 
-    if reasoning_effort:
-        data["reasoning"] = {"effort": reasoning_effort}
+    data["reasoning"] = {"effort": reasoning_effort}
 
     collected_chunks: List[str] = []
     generation_id: Optional[str] = None
@@ -339,13 +366,24 @@ def _call_openrouter(
         )
 
         if response.status_code != 200:
-            print(f"[LLM] OpenRouter API error: {response.status_code}")
-            return ""
+            try:
+                detail = response.text[:300]
+            except Exception:
+                detail = ""
+            if response.status_code == 400 and reasoning_effort == "none" and "reason" in detail.lower():
+                _NEEDS_SOME_REASONING.add(base_model)
+                print(f"[LLM] {base_model} won't switch reasoning off; using minimal")
+                return _stream_openrouter(prompt, system_prompt, config, on_delta, timeout,
+                                          metadata_out, on_generation_metadata)
+            print(f"[LLM] OpenRouter API error: {response.status_code} {detail[:120]}")
+            return "", False
 
         last_content_at = time.time()
+        complete = True
         for line in response.iter_lines():
             if time.time() - last_content_at > _STREAM_STALL_SECONDS:
-                print(f"[LLM] Stream stalled >{_STREAM_STALL_SECONDS:.0f}s, using what arrived")
+                print(f"[LLM] Stream stalled >{_STREAM_STALL_SECONDS:.0f}s")
+                complete = False
                 break
 
             if not line:
@@ -371,8 +409,17 @@ def _call_openrouter(
             if parsed.get("id"):
                 generation_id = parsed["id"]
 
+            # OpenRouter names the model and provider it routed to on each
+            # chunk. Without this the log could only repeat what we asked for.
+            if metadata_out is not None:
+                if parsed.get("model"):
+                    metadata_out["resolved_model"] = parsed["model"]
+                if parsed.get("provider"):
+                    metadata_out["backend_provider"] = parsed["provider"]
+
             if "error" in parsed:
                 print(f"[LLM] OpenRouter stream error: {parsed['error']}")
+                complete = False
                 break
 
             if parsed.get("usage") and metadata_out is not None:
@@ -404,11 +451,11 @@ def _call_openrouter(
                     config.openrouter_api_key, generation_id, on_generation_metadata,
                 )
 
-        return "".join(collected_chunks)
+        return "".join(collected_chunks), complete
 
     except Exception as e:
         print(f"[LLM] OpenRouter error: {e}")
-        return ""
+        return "".join(collected_chunks), False
 
 
 def _fetch_generation_metadata_async(

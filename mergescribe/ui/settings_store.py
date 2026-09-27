@@ -7,8 +7,9 @@ format can be tested without a display.
 """
 
 import json
+import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 
@@ -72,15 +73,22 @@ def save_settings(settings: Dict[str, Any]) -> None:
     existing = {}
     if settings_file.exists():
         try:
-            with open(settings_file) as f:
-                existing = json.load(f)
-        except Exception:
-            pass
+            existing = json.loads(settings_file.read_text())
+        except (OSError, ValueError) as e:
+            # Merging into nothing would write back only these keys and lose
+            # every other setting; leave the file for a person to look at.
+            print(f"[Settings] {settings_file} is unreadable ({e}); not saving")
+            return
 
     existing.update(settings)
+    _write_json(settings_file, existing)
 
-    with open(settings_file, "w") as f:
-        json.dump(existing, f, indent=2)
+
+def _write_json(path: Path, data: Dict[str, Any]) -> None:
+    """Replace the file in one step, so a crash mid-write can't leave half of it."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2))
+    os.replace(tmp, path)
 
 
 def remove_settings(keys: List[str]) -> None:
@@ -104,8 +112,7 @@ def remove_settings(keys: List[str]) -> None:
             del existing[key]
             changed = True
     if changed:
-        with open(settings_file, "w") as f:
-            json.dump(existing, f, indent=2)
+        _write_json(settings_file, existing)
 
 
 def save_env_keys(keys: Dict[str, str]) -> None:
@@ -135,37 +142,44 @@ def save_env_keys(keys: Dict[str, str]) -> None:
                 f.write(f"{key}={value}\n")
 
 
+# Current models only; anything else can still be typed in as a custom ID.
+# Every entry was checked to work with this app's settings (Sep 2026).
 KNOWN_STT_MODELS = [
     ("microsoft/mai-transcribe-2", "MAI-Transcribe 2"),
-    ("microsoft/mai-transcribe-1.5", "MAI-Transcribe 1.5"),
-    ("openai/gpt-4o-transcribe", "gpt-4o-transcribe"),
-    ("google/gemini-3.5-flash", "Gemini 3.5 Flash (audio-in)"),
-    ("google/gemini-3.7-flash", "Gemini 3.7 Flash (audio-in)"),
-    ("openai/gpt-transcribe", "gpt-transcribe"),
-    ("fish-audio/transcribe-1", "Fish Audio Transcribe 1"),
-    ("x-ai/grok-stt-1.0", "Grok STT 1.0"),
+    ("assemblyai/universal-3-5-pro", "Universal 3.5 Pro"),
+    ("fish-audio/transcribe-1-pro", "Fish Audio Transcribe 1 Pro"),
+    ("openai/gpt-transcribe", "GPT Transcribe"),
 ]
 
+# Fast enough for dictation: first token within about 1.5s.
 KNOWN_CORRECTION_MODELS = [
-    ("google/gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite"),
-    ("google/gemini-3.1-flash-lite-preview", "Gemini 3.1 Flash Lite Preview"),
-    ("google/gemini-3.5-flash", "Gemini 3.5 Flash"),
+    ("openai/gpt-6-luna", "GPT-6 Luna"),
+    ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5"),
+    ("moonshotai/kimi-k3", "Kimi K3"),
     ("google/gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite"),
-    ("google/gemini-3.6-flash", "Gemini 3.6 Flash"),
-    ("google/gemini-3.7-flash", "Gemini 3.7 Flash"),
-    ("moonshotai/kimi-k2.6", "Kimi K2.6"),
-    ("x-ai/grok-build-0.1", "Grok Build 0.1"),
-    ("x-ai/grok-4.3", "Grok 4.3"),
-    ("openai/gpt-5.4-mini", "GPT-5.4 Mini"),
-    ("openai/gpt-5.6-luna", "GPT-5.6 Luna"),
-    ("openai/gpt-5.6-luna:nitro", "GPT-5.6 Luna (Nitro)"),
-    ("openai/gpt-5.6-terra", "GPT-5.6 Terra"),
-    ("z-ai/glm-5.2", "GLM 5.2"),
-    ("anthropic/claude-opus-4.8-fast", "Claude Opus 4.8 (Fast)"),
-    ("minimax/minimax-m2.7:nitro", "MiniMax M2.7 Nitro"),
+    ("google/gemini-3.8-flash", "Gemini 3.8 Flash"),
 ]
 
-_DEFAULT_OR_CORRECTION_MODEL = "google/gemini-3.1-flash-lite"
+_DEFAULT_OR_CORRECTION_MODEL = "openai/gpt-6-luna"
+
+
+def fetch_transcription_models(api_key: str = "", timeout: float = 5.0) -> List[Tuple[str, str]]:
+    """
+    OpenRouter's speech-to-text models as (id, name), newest first; [] when
+    it can't be reached. Every one is served by /audio/transcriptions.
+    """
+    import requests
+    try:
+        response = requests.get("https://openrouter.ai/api/v1/models",
+                                params={"output_modalities": "transcription"},
+                                headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
+                                timeout=timeout)
+        models = response.json().get("data", [])
+    except Exception:
+        return []
+    # "Microsoft AI: MAI-Transcribe 2" -> "MAI-Transcribe 2"
+    return [(m["id"], str(m.get("name") or m["id"]).split(": ", 1)[-1])
+            for m in models if isinstance(m, dict) and m.get("id")]
 
 
 def _parse_model_ids(value: str) -> List[str]:

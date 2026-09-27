@@ -89,9 +89,9 @@ class TestRoutingStatus:
     def test_names_the_model_and_its_routing(self):
         from mergescribe.ui.settings_store import get_routing_status
 
-        status = get_routing_status("sk-or-test", "openai/gpt-5.6-luna",
+        status = get_routing_status("sk-or-test", "openai/gpt-6-luna",
                                     ["together"], "none")
-        assert "Luna" in status
+        assert "GPT-6 Luna" in status
         assert "together" in status
         assert "none reasoning" in status
 
@@ -128,8 +128,55 @@ class TestRemoveSettings:
 
 
 class TestCatalogue:
-    def test_the_nitro_variant_is_a_known_model(self):
-        """Otherwise the popup shows the default while a custom field holds the real value."""
-        from mergescribe.ui.settings_store import KNOWN_CORRECTION_MODELS
+    def test_the_default_model_is_listed(self):
+        """Otherwise a fresh install opens Settings on "Custom…" for the model it uses."""
+        from mergescribe.correct import OPENROUTER_MODEL_DEFAULT
+        from mergescribe.ui.settings_store import _DEFAULT_OR_CORRECTION_MODEL, KNOWN_CORRECTION_MODELS
 
-        assert "openai/gpt-5.6-luna:nitro" in {slug for slug, _ in KNOWN_CORRECTION_MODELS}
+        assert _DEFAULT_OR_CORRECTION_MODEL == OPENROUTER_MODEL_DEFAULT
+        assert OPENROUTER_MODEL_DEFAULT in {slug for slug, _ in KNOWN_CORRECTION_MODELS}
+
+    def test_each_model_is_listed_once(self):
+        from mergescribe.ui.settings_store import KNOWN_CORRECTION_MODELS, KNOWN_STT_MODELS
+
+        for catalogue in (KNOWN_CORRECTION_MODELS, KNOWN_STT_MODELS):
+            slugs = [slug for slug, _ in catalogue]
+            assert len(slugs) == len(set(slugs))
+
+
+class TestSafeWrites:
+    def test_an_unreadable_file_is_not_replaced_by_a_fragment(self, tmp_path):
+        """A save that can't read the file must not write back only its own keys."""
+        from mergescribe.ui import settings_store as store
+
+        home = tmp_path / "home"
+        (home / ".mergescribe").mkdir(parents=True)
+        target = home / ".mergescribe" / "settings.json"
+        target.write_text('{"trigger_key": "cmd_r", "enabled_mics": ["Mic"')    # cut off mid-write
+        with patch.object(store.Path, "home", staticmethod(lambda: home)):
+            store.save_settings({"hud_enabled": False})
+        assert target.read_text().startswith('{"trigger_key": "cmd_r"')          # left for a human to see
+        assert not list((home / ".mergescribe").glob("*.tmp"))
+
+    def test_saves_are_whole_files(self, tmp_path):
+        from mergescribe.ui import settings_store as store
+
+        home = tmp_path / "home"
+        with patch.object(store.Path, "home", staticmethod(lambda: home)):
+            store.save_settings({"a": 1})
+            store.save_settings({"b": 2})
+            assert store.load_settings() == {"a": 1, "b": 2}
+
+
+class TestHandEditedValues:
+    def test_strings_and_wrong_types_do_not_turn_into_nonsense(self, tmp_path):
+        """ "false" is not True, and a string where a list belongs is not a list of letters."""
+        from mergescribe.config import Config
+
+        settings = tmp_path / "settings.json"
+        settings.write_text(json.dumps({"hud_enabled": "false", "training_enabled": "true",
+                                        "enabled_mics": "MacBook Pro Microphone"}))
+        config = Config()
+        config._apply_settings_file(settings)
+        assert config.hud_enabled is False and config.training_enabled is True
+        assert config.enabled_mics != list("MacBook Pro Microphone")

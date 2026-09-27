@@ -12,6 +12,7 @@ presentation plus a table binding each control to the settings it writes.
 
 from __future__ import annotations
 
+import threading
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import objc
@@ -31,7 +32,7 @@ from PyObjCTools import AppHelper
 from ..validate import KeyValidator, ValidationResult
 from .settings_store import (
     KNOWN_CORRECTION_MODELS, KNOWN_STT_MODELS, _DEFAULT_OR_CORRECTION_MODEL,
-    _parse_model_ids, get_available_mics, get_routing_status, load_env_keys,
+    _parse_model_ids, fetch_transcription_models, get_available_mics, get_routing_status, load_env_keys,
     load_settings, remove_settings, save_env_keys, save_settings,
 )
 
@@ -48,6 +49,7 @@ SECTIONS = [
     ("Models", "cpu"),
     ("Instructions", "text.quote"),
     ("Advanced", "slider.horizontal.3"),
+    ("Stats", "chart.bar.xaxis"),
 ]
 
 TRIGGER_KEYS = [
@@ -148,12 +150,21 @@ def _trim(value: float, places: int = 2) -> str:
     return text.rstrip("0").rstrip(".") if "." in text else text
 
 
-def _lines(value: str) -> List[str]:
-    return [line.strip() for line in (value or "").splitlines() if line.strip()]
-
-
 def _words(value: str) -> List[str]:
     return _parse_model_ids((value or "").replace(" ", "\n"))
+
+
+class _Page(NSView):
+    """
+    A flipped holder for one section, so it hangs from the top of the window.
+
+    A scroll view's clip view takes its flippedness from the document view,
+    and an unflipped one anchors content to the *bottom*: a section shorter
+    than the window sank to the bottom with a gap above its title.
+    """
+
+    def isFlipped(self):
+        return True
 
 
 class _Card(NSView):
@@ -171,6 +182,32 @@ class _Card(NSView):
         NSColor.separatorColor().setStroke()
         path.setLineWidth_(1.0)
         path.stroke()
+
+
+class _Bars(NSView):
+    """Words per day as rounded bars in the accent colour; today is the last one."""
+
+    def initWithHeight_(self, height):
+        self = objc.super(_Bars, self).init()
+        if self is None:
+            return None
+        self.values = []
+        self.setTranslatesAutoresizingMaskIntoConstraints_(False)
+        self.heightAnchor().constraintEqualToConstant_(height).setActive_(True)
+        return self
+
+    def drawRect_(self, rect):
+        if not self.values:
+            return
+        bounds, top = self.bounds(), max(max(self.values), 1)
+        count, gap = len(self.values), 6.0
+        width = (bounds.size.width - gap * (count - 1)) / count
+        for index, value in enumerate(self.values):
+            height = max(2.0, bounds.size.height * value / top)
+            bar = NSMakeRect(index * (width + gap), 0.0, width, height)
+            colour = NSColor.controlAccentColor()
+            (colour if index == count - 1 else colour.colorWithAlphaComponent_(0.55)).setFill()
+            NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(bar, 3.0, 3.0).fill()
 
 
 # ------------------------------------------------------------------- window
@@ -279,8 +316,17 @@ class SettingsWindowController(NSObject):
             return
         if index not in self._section_views:
             builder = (self._recording_section, self._models_section,
-                       self._instructions_section, self._advanced_section)[index]
-            self._section_views[index] = builder()
+                       self._instructions_section, self._advanced_section,
+                       self._stats_section)[index]
+            section = builder()
+            page = _Page.alloc().init()
+            for v in (page, section):
+                v.setTranslatesAutoresizingMaskIntoConstraints_(False)
+            page.addSubview_(section)
+            for edge in ("topAnchor", "leadingAnchor", "trailingAnchor", "bottomAnchor"):
+                getattr(section, edge)().constraintEqualToAnchor_(
+                    getattr(page, edge)()).setActive_(True)
+            self._section_views[index] = page
         view = self._section_views[index]
         self.scroll.setDocumentView_(view)
         clip = self.scroll.contentView()
@@ -531,7 +577,7 @@ class SettingsWindowController(NSObject):
     @objc.python_method
     def _recording_section(self) -> NSView:
         s = self.settings
-        enabled = s.get("enabled_mics", s.get("ENABLED_INPUT_DEVICES", []))
+        enabled = s.get("enabled_mics", [])
         mic_switches: Dict[str, NSSwitch] = {}
         mic_rows: List[NSView] = []
         for mic in get_available_mics():
@@ -566,6 +612,8 @@ class SettingsWindowController(NSObject):
                           "Mic level, live transcript and progress")[0],
                 self._row("Space between dictations", toggle("space_between_dictations", True),
                           "When continuing in the same app")[0],
+                self._row("Quieter audio", toggle("duck_while_recording", True),
+                          "Turns other sound down while you talk, through speakers only")[0],
             ]), ""),
             ("Speech Detection", self._card([
                 self._row("Split on silence", toggle("chunk_on_silence", True),
@@ -595,33 +643,36 @@ class SettingsWindowController(NSObject):
         key_row, self.key_status = self._row("API key", self.api_key)
         self._bind(self.api_key, self._commit_key)
 
-        providers = {p.replace("_mlx", "").replace("_whisper", "")
-                     for p in s.get("enabled_providers", ["parakeet"])}
-        parakeet = self._switch("parakeet" in providers)
+        parakeet = self._switch("parakeet" in s.get("enabled_providers", ["parakeet"]))
         self._bind(parakeet, lambda: {
             "enabled_providers": ["parakeet"] if parakeet.state() else []})
 
-        chosen = set(s.get("openrouter_stt_models", []))
-        known = {slug for slug, _ in KNOWN_STT_MODELS}
+        chosen = list(s.get("openrouter_stt_models", []))
+        # The current models, then any added from OpenRouter's catalogue (kept
+        # listed when switched off), then anything enabled by hand in the file.
+        self.stt_listed = [tuple(m) for m in s.get("openrouter_stt_listed", [])
+                           if isinstance(m, (list, tuple)) and len(m) == 2]
+        shown = list(KNOWN_STT_MODELS)
+        for slug, title in self.stt_listed + [(m, m) for m in chosen]:
+            if slug not in {x for x, _ in shown}:
+                shown.append((slug, title))
         self.stt_switches: Dict[str, Tuple[NSSwitch, NSTextField]] = {}
         stt_rows: List[NSView] = [self._row("Parakeet", parakeet, "Local, on this Mac")[0]]
-        for slug, title in KNOWN_STT_MODELS:
+        for slug, title in shown:
             switch = self._switch(slug in chosen)
             row, note = self._row(title, switch)
             self.stt_switches[slug] = (switch, note)
             stt_rows.append(row)
-        self.extra_stt = self._field(
-            " ".join(m for m in s.get("openrouter_stt_models", []) if m not in known),
-            240.0, "vendor/model, space separated")
-        stt_rows.append(self._row("Other models", self.extra_stt)[0])
+        self.stt_add = self._popup([("", "Loading…")], "", 240.0)
+        stt_rows.append(self._row("Add a model", self.stt_add, "From OpenRouter's speech-to-text models")[0])
 
         def produce_stt() -> Dict[str, Any]:
-            models = [slug for slug, (sw, _) in self.stt_switches.items() if sw.state()]
-            models += [m for m in _words(self.extra_stt.stringValue()) if m not in models]
-            return {"openrouter_stt_models": models}
+            return {"openrouter_stt_models": [slug for slug, (sw, _) in self.stt_switches.items() if sw.state()]}
         for switch, _ in self.stt_switches.values():
             self._bind(switch, produce_stt)
-        self._bind(self.extra_stt, produce_stt)
+        self._bind(self.stt_add, self._add_stt_model)
+        threading.Thread(target=self._load_stt_catalogue, args=(self.env_keys.get("OPENROUTER_API_KEY", ""),),
+                         daemon=True).start()
 
         model = s.get("openrouter_correction_model", _DEFAULT_OR_CORRECTION_MODEL)
         known_models = [slug for slug, _ in KNOWN_CORRECTION_MODELS]
@@ -669,6 +720,40 @@ class SettingsWindowController(NSObject):
         return section
 
     @objc.python_method
+    def _load_stt_catalogue(self, key: str) -> None:
+        models = fetch_transcription_models(key)
+        AppHelper.callAfter(self._fill_stt_catalogue, models)
+
+    @objc.python_method
+    def _fill_stt_catalogue(self, models: List[Tuple[str, str]]) -> None:
+        """The add menu: every OpenRouter transcription model not already listed."""
+        options = [(slug, name) for slug, name in models if slug not in self.stt_switches]
+        heading = "Choose…" if options else ("All added" if models else "Couldn't reach OpenRouter")
+        self.stt_catalogue = dict(models)
+        self.stt_add.removeAllItems()
+        self.stt_add.addItemWithTitle_(heading)
+        for _, name in options:
+            self.stt_add.addItemWithTitle_(name)
+        self._popup_values[objc.pyobjc_id(self.stt_add)] = [""] + [slug for slug, _ in options]
+
+    @objc.python_method
+    def _add_stt_model(self) -> Dict[str, Any]:
+        slug = self._popup_value(self.stt_add)
+        if not slug:
+            return {}
+        listed = [list(m) for m in self.stt_listed] + [[slug, self.stt_catalogue.get(slug, slug)]]
+        enabled = [m for m, (sw, _) in self.stt_switches.items() if sw.state()] + [slug]
+        # Rebuild once this change is saved, so the new model shows as a row.
+        AppHelper.callAfter(self._rebuild_section, "Models")
+        return {"openrouter_stt_listed": listed, "openrouter_stt_models": enabled}
+
+    @objc.python_method
+    def _rebuild_section(self, title: str) -> None:
+        index = [name for name, _ in SECTIONS].index(title)
+        self._section_views.pop(index, None)
+        self._show(index)
+
+    @objc.python_method
     def _selected_model(self) -> str:
         choice = self._popup_value(self.model_popup)
         if choice == _CUSTOM:
@@ -710,7 +795,7 @@ class SettingsWindowController(NSObject):
         for switch, note in self.stt_switches.values():
             switch.setEnabled_(has_key)
             _set_detail(note, "" if has_key else "Needs an OpenRouter key")
-        self.extra_stt.setEnabled_(has_key)
+        self.stt_add.setEnabled_(has_key)
 
     @objc.python_method
     def _commit_key(self) -> Dict[str, Any]:
@@ -753,13 +838,6 @@ class SettingsWindowController(NSObject):
         about, about_text = self._text_area(s.get("custom_instructions", ""), 170.0)
         self._bind(about_text, lambda: {"custom_instructions": about_text.string()})
 
-        routing = self._switch(s.get("field_routing_enabled", False))
-        self._bind(routing, lambda: {"field_routing_enabled": bool(routing.state())})
-        apps, apps_text = self._text_area("\n".join(s.get("routing_allowed_apps", [])), 64.0)
-        self._bind(apps_text, lambda: {"routing_allowed_apps": _lines(apps_text.string())})
-        prefs, prefs_text = self._text_area(s.get("routing_instructions", ""), 96.0)
-        self._bind(prefs_text, lambda: {"routing_instructions": prefs_text.string().strip()})
-
         from ..vocabulary import learned_corrections
         learning = self._switch(s.get("learn_vocabulary", True))
         self._bind(learning, lambda: {"learn_vocabulary": bool(learning.state())})
@@ -774,14 +852,6 @@ class SettingsWindowController(NSObject):
                 self._row("Learn from corrections", learning,
                           "A word you correct in two separate dictations is shown to the model")[0],
             ]), learned_note),
-            ("Output Routing", self._card([
-                self._row("Route to the best field", routing, "Experimental")[0],
-            ]), "When on, dictation can land in another app's text field instead of "
-                "the one you're focused on."),
-            ("Eligible Apps", self._card([apps]),
-             "One app per line. Leave empty to allow every app on screen."),
-            ("Routing Preferences", self._card([prefs]),
-             "Where different kinds of dictation should go."),
         ])
 
     # -- Advanced ------------------------------------------------------------
@@ -816,6 +886,68 @@ class SettingsWindowController(NSObject):
         text.setString_(default)
         remove_settings([key])
         self.settings.pop(key, None)
+
+    # -- Stats ---------------------------------------------------------------
+
+    @objc.python_method
+    def _stats_section(self) -> NSView:
+        """What dictation has added up to, read from the metrics log off the main thread."""
+        def value() -> NSTextField:
+            return _label("…", secondary=True)
+
+        self._stats = {key: value() for key in (
+            "today", "week", "all", "speaking", "overall", "after", "apps")}
+        self._bars = _Bars.alloc().initWithHeight_(64.0)
+        bars = NSView.alloc().init()
+        bars.setTranslatesAutoresizingMaskIntoConstraints_(False)
+        bars.addSubview_(self._bars)
+        _pin(self._bars, bars, (14.0, 14.0, 12.0, 14.0))
+        section = self._section("Stats", [
+            ("Dictated", self._card([
+                self._row("Today", self._stats["today"])[0],
+                self._row("Past 7 days", self._stats["week"])[0],
+                self._row("All time", self._stats["all"])[0],
+            ]), ""),
+            ("", self._card([bars]), "Words per day over the past two weeks; today is the brightest."),
+            ("Speed", self._card([
+                self._row("Speaking pace", self._stats["speaking"], "Words per minute while the key is held")[0],
+                self._row("End to end", self._stats["overall"], "From pressing the key to the text being typed")[0],
+                self._row("After you let go", self._stats["after"], "Until the text is done; median and slowest tenth")[0],
+            ]), "Medians over the past week, for dictations of five words or more."),
+            ("Where it goes", self._card([self._row("Past 7 days", self._stats["apps"])[0]]),
+             "The apps dictation went into, counted from September 27, 2026."),
+        ])
+        threading.Thread(target=self._load_stats, daemon=True).start()
+        return section
+
+    @objc.python_method
+    def _load_stats(self) -> None:
+        from ..stats import usage
+        try:
+            result = usage()
+        except Exception as e:
+            print(f"[Settings] Stats unavailable: {e}")
+            return
+        AppHelper.callAfter(self._show_stats, result)
+
+    @objc.python_method
+    def _show_stats(self, result) -> None:
+        def amount(period: str) -> str:
+            words, count = result.words.get(period, 0), result.dictations.get(period, 0)
+            return f"{words:,} words · {count:,} dictation{'s' if count != 1 else ''}"
+
+        for period in ("today", "week", "all"):
+            self._stats[period].setStringValue_(amount(period))
+        wpm = lambda v: f"{v:.0f} wpm" if v else "—"   # noqa: E731
+        self._stats["speaking"].setStringValue_(wpm(result.speaking_wpm))
+        self._stats["overall"].setStringValue_(wpm(result.overall_wpm))
+        if result.after_release:
+            median, slow = result.after_release
+            self._stats["after"].setStringValue_(f"{median:.1f} s · {slow:.1f} s")
+        self._bars.values = result.daily_words
+        self._bars.setNeedsDisplay_(True)
+        self._stats["apps"].setStringValue_(
+            "  ·  ".join(f"{app} {share:.0%}" for app, share in result.apps) if result.apps else "—")
 
     # -- lifecycle -----------------------------------------------------------
 

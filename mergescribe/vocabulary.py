@@ -16,13 +16,20 @@ from __future__ import annotations
 
 import difflib
 import json
-import re
 import threading
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
 
 from .feedback import CORRECTIONS_PATH
+
+# Words handed in from outside, one per line: anything that knows the speaker's
+# vocabulary before they say it (names in their calendar, jargon in what they
+# read) can write here. Most important first - the prompt has room for the head.
+SUPPLIED_PATH = Path.home() / ".mergescribe" / "vocabulary.txt"
+MAX_PROMPT_TERMS = 100  # supplied terms the correction prompt can afford
+MAX_KEYTERMS = 1000     # AssemblyAI's limit per request
+MAX_KEYTERM_WORDS = 6   # and per term
 
 MIN_SESSIONS = 2        # one correction is an anecdote; the same one twice is a pattern
 MAX_CORRECTIONS = 30    # bounds how much the prompt can grow
@@ -34,10 +41,12 @@ Correction = Tuple[List[str], str, int]
 
 _cache_lock = threading.Lock()
 _cache: Tuple[float, List[Correction]] = (-1.0, [])
+_supplied_cache: Tuple[float, List[str]] = (-1.0, [])
 
 
 def _letters(text: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", text.lower())
+    """The letters and digits of any script, case-folded: what a word is, not how it is typed."""
+    return "".join(ch for ch in text.casefold() if ch.isalnum())
 
 
 def _replacements(typed: str, corrected: str) -> List[Tuple[str, str]]:
@@ -50,6 +59,20 @@ def _replacements(typed: str, corrected: str) -> List[Tuple[str, str]]:
         in difflib.SequenceMatcher(None, before, after, autojunk=False).get_opcodes()
         if tag == "replace"
     ]
+
+
+def _is_truncation(before: str, after: str) -> bool:
+    """
+    True when the "correction" is just a fragment of what was there.
+
+    Word-level diffs cut inside words when an edit lands mid-word, so the
+    corpus fills up with pairs like "them" -> "the" and "not" -> "no" that
+    teach the model nothing and, in the case of negations, teach it something
+    harmful. Only a *shorter* fragment is an artifact: a correction that spells
+    a word out more fully ("Claud" -> "Claude") is exactly what this is for.
+    """
+    a, b = _letters(before), _letters(after)
+    return bool(a) and bool(b) and len(b) < len(a) and b in a
 
 
 def _most_common(items: List[str]) -> str:
@@ -81,6 +104,8 @@ def repeated_corrections(rows: Iterable[dict], *, min_sessions: int = MIN_SESSIO
                 continue
             if _letters(before) == _letters(after):
                 continue   # only case or punctuation changed: nothing about words to learn
+            if _is_truncation(before, after):
+                continue   # a diff artifact, not a word
             key = _letters(after)
             sessions[key].add(session)
             afters[key].append(after)
@@ -112,6 +137,51 @@ def learned_corrections(path: Path = CORRECTIONS_PATH) -> List[Correction]:
     with _cache_lock:
         _cache = (modified, corrections)
     return list(corrections)
+
+
+def supplied_terms(path: Path = SUPPLIED_PATH) -> List[str]:
+    """The terms in the vocabulary file ('#' starts a comment), re-read only when it changes."""
+    global _supplied_cache
+    try:
+        modified = path.stat().st_mtime
+    except OSError:
+        return []
+    with _cache_lock:
+        if _supplied_cache[0] == modified:
+            return list(_supplied_cache[1])
+    terms = []
+    for line in path.read_text(errors="ignore").splitlines():
+        term = " ".join(line.split("#", 1)[0].split())
+        if term:
+            terms.append(term)
+    with _cache_lock:
+        _supplied_cache = (modified, terms)
+    return list(terms)
+
+
+def known_terms(corrections_path: Path = CORRECTIONS_PATH,
+                supplied_path: Path = SUPPLIED_PATH) -> List[str]:
+    """
+    Every term the speaker is known to use, sized for priming a recognizer:
+    repeated corrections first (proven in their own dictations), then the
+    supplied ones, each once.
+    """
+    seen, out = set(), []
+    learned = [after for _, after, _ in learned_corrections(corrections_path)]
+    for term in learned + supplied_terms(supplied_path):
+        key = _letters(term)
+        if key and key not in seen and len(term.split()) <= MAX_KEYTERM_WORDS:
+            seen.add(key)
+            out.append(term)
+    return out[:MAX_KEYTERMS]
+
+
+def supplied_prompt(terms: List[str]) -> str:
+    """The supplied terms as the correction model sees them."""
+    if not terms:
+        return ""
+    return ("Words and names this speaker uses: " + ", ".join(terms[:MAX_PROMPT_TERMS]) +
+            ". Where the audio fits one of these, spell it this way.")
 
 
 def vocabulary_prompt(corrections: List[Correction]) -> str:

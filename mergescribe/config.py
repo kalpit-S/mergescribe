@@ -6,7 +6,7 @@ Provides immutable snapshots for session isolation.
 """
 
 from pathlib import Path
-from typing import List
+from typing import Any, List
 import json
 import os
 
@@ -39,7 +39,11 @@ DEFAULT_CONFIG = {
 
     # Processing
     "consensus_threshold": 2,
-    "consensus_max_words": 15,
+    # Skip correction when a classifier says the transcript needs none. Runs
+    # beside the correction request, so a slow answer costs nothing.
+    "judge_enabled": False,
+    "judge_model": "~typesafe/jev-latest",
+    "judge_timeout_ms": 900,
 
     # A chunk waits for its slowest provider. Once the fastest has answered,
     # give the rest this much longer (1.0 = twice the fastest provider's time)
@@ -57,21 +61,13 @@ DEFAULT_CONFIG = {
 
     # OpenRouter STT and correction
     "openrouter_stt_models": [],
-    "openrouter_correction_model": "google/gemini-3.1-flash-lite",
+    "openrouter_correction_model": "openai/gpt-6-luna",
     "openrouter_correction_provider_order": [],
     "openrouter_correction_allow_fallbacks": True,
     "openrouter_correction_reasoning_effort": "",
 
     # User customization
     "custom_instructions": "",
-
-    # Voice-driven output routing (AX field inventory + TARGET prefix).
-    # Experimental and off by default: a wrong destination is far more
-    # disruptive than no routing at all, since the text has to be undone
-    # and re-dictated somewhere else.
-    "field_routing_enabled": False,
-    "routing_allowed_apps": [],   # empty = all on-screen apps are eligible
-    "routing_instructions": "",   # user rules for where dictation should go
 
     # Advanced settings
     "system_prompt": "",
@@ -92,6 +88,8 @@ DEFAULT_CONFIG = {
     # while you're looking at the field you're dictating into, so on its own it
     # is not feedback at all.
     "hud_enabled": True,
+    # Lower the system output while recording, when it plays through speakers.
+    "duck_while_recording": True,
 
     # Separate consecutive dictations with a space. Applied as a leading space
     # only when continuing a recent dictation into the same destination, so a
@@ -99,6 +97,29 @@ DEFAULT_CONFIG = {
     "space_between_dictations": True,
 
 }
+
+
+def _coerce(value: Any, default: Any) -> Any:
+    """
+    A settings value as the type its default has, or None if it can't be one.
+
+    bool("false") is True and list("Mic") is ['M', 'i', 'c'], so a plain
+    type(default)(value) turns a hand-edited file into nonsense.
+    """
+    if isinstance(default, bool):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str) and value.strip().lower() in ("true", "yes", "on", "1", "false", "no", "off", "0"):
+            return value.strip().lower() in ("true", "yes", "on", "1")
+        return None
+    if isinstance(default, (list, dict)):
+        return value if isinstance(value, type(default)) else None
+    try:
+        return type(default)(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class Config:
@@ -132,7 +153,9 @@ class Config:
 
         # Processing
         self.consensus_threshold: int = 2
-        self.consensus_max_words: int = 15
+        self.judge_enabled: bool = False
+        self.judge_model: str = "~typesafe/jev-latest"
+        self.judge_timeout_ms: int = 900
         self.provider_deadline_multiplier: float = 1.0
         self.provider_deadline_min_ms: int = 2000
 
@@ -143,18 +166,13 @@ class Config:
         self.openrouter_stt_models: List[str] = []
 
         # OpenRouter correction: which model to use for LLM correction
-        self.openrouter_correction_model: str = "google/gemini-3.1-flash-lite"
+        self.openrouter_correction_model: str = "openai/gpt-6-luna"
         self.openrouter_correction_provider_order: List[str] = []
         self.openrouter_correction_allow_fallbacks: bool = True
         self.openrouter_correction_reasoning_effort: str = ""
 
         # User customization
         self.custom_instructions: str = ""
-
-        # Voice-driven output routing
-        self.field_routing_enabled: bool = False
-        self.routing_allowed_apps: List[str] = []
-        self.routing_instructions: str = ""
 
         # Advanced settings
         self.system_prompt: str = ""
@@ -176,6 +194,7 @@ class Config:
 
         # Floating recording HUD
         self.hud_enabled: bool = True
+        self.duck_while_recording: bool = True
 
         # Separator between consecutive dictations
         self.space_between_dictations: bool = True
@@ -248,65 +267,18 @@ class Config:
             with open(settings_file) as f:
                 data = json.load(f)
 
-            # Map old config keys to new ones
-            key_mapping = {
-                "ENABLED_INPUT_DEVICES": "enabled_mics",
-                "ENABLED_PROVIDERS": "enabled_providers",
-                "TRIGGER_KEY": "trigger_key",
-            }
-
-            for old_key, new_key in key_mapping.items():
-                if old_key in data:
-                    value = data[old_key]
-                    # Convert provider names if needed
-                    if old_key == "ENABLED_PROVIDERS":
-                        value = [p.replace("_mlx", "").replace("_whisper", "") for p in value]
-                    setattr(self, new_key, value)
-
             # Apply settings with type validation
             for key, default in DEFAULT_CONFIG.items():
                 if key in data:
-                    setattr(self, key, type(default)(data[key]))
+                    value = _coerce(data[key], default)
+                    if value is not None:
+                        setattr(self, key, value)
+                    else:
+                        print(f"Ignoring {key}={data[key]!r} in {settings_file.name}: "
+                              f"expected {type(default).__name__}")
 
         except Exception as e:
             print(f"Error loading {settings_file}: {e}")
-
-    def save_settings(self) -> None:
-        """Save current settings to settings.json."""
-        data = {
-            "enabled_mics": self.enabled_mics,
-            "enabled_providers": self.enabled_providers,
-            "custom_instructions": self.custom_instructions,
-            "trigger_key": self.trigger_key,
-            "double_tap_threshold": self.double_tap_threshold,
-            "silence_threshold": self.silence_threshold,
-            "chunk_on_silence": self.chunk_on_silence,
-            "adaptive_threshold_enabled": self.adaptive_threshold_enabled,
-            "speech_headroom_db": self.speech_headroom_db,
-            "speech_hysteresis_db": self.speech_hysteresis_db,
-            "noise_floor_percentile": self.noise_floor_percentile,
-            "openrouter_stt_models": self.openrouter_stt_models,
-            "openrouter_correction_model": self.openrouter_correction_model,
-            "openrouter_correction_provider_order": self.openrouter_correction_provider_order,
-            "openrouter_correction_allow_fallbacks": self.openrouter_correction_allow_fallbacks,
-            "openrouter_correction_reasoning_effort": self.openrouter_correction_reasoning_effort,
-            "system_prompt": self.system_prompt,
-            "editing_prompt": self.editing_prompt,
-            "training_enabled": self.training_enabled,
-            "field_routing_enabled": self.field_routing_enabled,
-            "routing_allowed_apps": self.routing_allowed_apps,
-            "routing_instructions": self.routing_instructions,
-            "edit_feedback_enabled": self.edit_feedback_enabled,
-            "learn_vocabulary": self.learn_vocabulary,
-            "provider_deadline_multiplier": self.provider_deadline_multiplier,
-            "provider_deadline_min_ms": self.provider_deadline_min_ms,
-            "hud_enabled": self.hud_enabled,
-            "space_between_dictations": self.space_between_dictations,
-        }
-
-        self._ensure_data_dir()
-        with open(self.settings_file, "w") as f:
-            json.dump(data, f, indent=2)
 
     def snapshot(self) -> ConfigSnapshot:
         """Return immutable copy for session isolation, reloading settings from disk first."""
@@ -320,10 +292,12 @@ class Config:
             toggle_mode_timeout=self.toggle_mode_timeout,
             enabled_providers=list(self.enabled_providers),
             consensus_threshold=self.consensus_threshold,
-            consensus_max_words=self.consensus_max_words,
             space_between_dictations=self.space_between_dictations,
             provider_deadline_multiplier=self.provider_deadline_multiplier,
             provider_deadline_min_ms=self.provider_deadline_min_ms,
+            judge_enabled=self.judge_enabled,
+            judge_model=self.judge_model,
+            judge_timeout_ms=self.judge_timeout_ms,
             openrouter_api_key=self.openrouter_api_key,
             openrouter_stt_models=list(self.openrouter_stt_models),
             openrouter_correction_model=self.openrouter_correction_model,
@@ -335,9 +309,6 @@ class Config:
             editing_prompt=self.editing_prompt,
             training_enabled=self.training_enabled,
             training_data_dir=str(self.training_data_dir),
-            field_routing_enabled=self.field_routing_enabled,
-            routing_allowed_apps=list(self.routing_allowed_apps),
-            routing_instructions=self.routing_instructions,
             edit_feedback_enabled=self.edit_feedback_enabled,
             learn_vocabulary=self.learn_vocabulary,
         )

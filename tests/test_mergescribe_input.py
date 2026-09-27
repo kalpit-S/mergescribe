@@ -51,7 +51,9 @@ def test_hold_stops_immediately_on_release():
 
 
 def test_double_tap_enters_toggle_and_third_press_stops():
-    controller, events = _make_controller(threshold=0.12, toggle_timeout=5.0)
+    # A wide threshold, so a scheduling stall on a loaded CI runner can't turn
+    # the second tap into a separate recording. The behaviour is what's tested.
+    controller, events = _make_controller(threshold=0.5, toggle_timeout=5.0)
 
     # Tap 1
     controller.on_key_press(Key.alt_r)
@@ -71,7 +73,7 @@ def test_double_tap_enters_toggle_and_third_press_stops():
     assert events == ["start", "stop"]
     assert controller.state == "idle"
 
-    # Ensure no delayed stop fires later
-    time.sleep(0.20)
+    # Ensure no delayed stop fires later (outlast the threshold)
+    time.sleep(0.6)
     assert events == ["start", "stop"]
 

@@ -25,20 +25,20 @@ graph TD
     Ring -->|silence-split chunks| Parakeet[Parakeet local MLX]
     Ring -->|silence-split chunks| Cloud[Cloud STT via OpenRouter]
 
-    Parakeet --> Consensus{Consensus?}
-    Cloud --> Consensus
+    Parakeet --> Wait{Agreement or deadline}
+    Cloud --> Wait
 
-    Consensus -->|yes, short phrase| Typer[Type into target field]
-    Consensus -->|no| LLM[LLM correction]
+    Wait --> LLM[LLM correction]
+    Wait --> Judge[Judge: needs correction?]
+    Judge -->|no, ~220ms| Typer[Type into target field]
 
-    AX[Accessibility field inventory<br/>optional, off by default] --> LLM
-    Context[App context + history] --> LLM
+    Context[App context + vocabulary] --> LLM
 
     LLM -->|streamed tokens| Typer
 ```
 
 The UI thread never blocks: audio callbacks only fill buffers, and STT, correction and
-typing all happen on session threads. ~8k lines of Python, 214 tests.
+typing all happen on session threads. ~8.8k lines of Python, 336 tests.
 
 ---
 
@@ -48,12 +48,32 @@ typing all happen on session threads. ~8k lines of Python, 214 tests.
 audio instantly — including the split second *before* you pressed it.
 
 **Live chunking.** Long dictations are split on silence and transcribed while you're
-still talking, so releasing the key only waits on the final chunk.
+still talking, so releasing the key only waits on the final chunk. A chunk that runs
+past 30s waits for the next gap between words before cutting, rather than splitting a
+word in half: forced cuts were 35% of all chunks, and 18% of the correction model's
+edits were landing within two words of a seam, repairing damage the chunker caused.
 
 **Consensus counts providers, not mics.** One model agreeing with itself across two
-microphones rules out acoustic noise but not its own systematic errors. When two
-*different* providers agree on a short, filler-free phrase, correction is skipped
-entirely for instant output.
+microphones rules out acoustic noise but not its own systematic errors. When enough
+*different* providers agree, a chunk stops waiting on slower ones. Agreement settles
+what was said, not whether it needs tidying ("um, ship it" can be agreed on too), so
+the text still goes through the judge and the correction model.
+
+**Skips correction when it isn't needed.** About a quarter of dictations come back already
+saying exactly what you meant, and waiting on a correction model to hand them back
+unchanged is pure latency. A classifier (TypeSafe's Jev) is asked, in one call and at the
+same moment the correction request goes out, which transcript is most likely what was said
+(or none of them), and the correction step's own jobs about each one: is there filler, a
+restart, a likely mishearing, a punctuation or grammar fix to make. A transcript is typed as
+it stands only when none applies. It answers in ~220ms, so a clean verdict types before the
+correction's first token; anything else costs nothing, because the correction was already in
+flight. On 600 logged dictations it skipped correction on 3.2%, with 3 of those skips typing
+a word the correction would have changed, against 14 for the first design that asked about
+"the best entry" instead of each transcript. Anything you've asked for beyond those jobs (your
+Instructions, or your own correction prompt if you replaced the default) is one more question,
+asked with the window you're typing into, so a rule like "all lowercase in Slack" still holds
+when correction is skipped. `scripts/judge_eval.py` re-runs the measurement.
+Off by default (`judge_enabled`).
 
 **Provider deadline.** A chunk is only as fast as its slowest recognizer. Once the
 fastest answers, the rest get a proportional grace period and are then left behind —
@@ -70,16 +90,25 @@ records what you changed, filtering out sends, clears, app reformatting and
 mid-keystroke snapshots. A correction you make in two separate dictations becomes
 evidence in the prompt — what the recognizers wrote, what you changed it to, how often —
 so a name you keep fixing gets spelled right without every similar-sounding word being
-rewritten. The corpus stays on your machine.
+rewritten. The same terms prime recognizers that accept them (AssemblyAI's key terms), and
+anything that knows your words before you say them can add to `~/.mergescribe/vocabulary.txt`,
+one term per line. The corpus stays on your machine.
 
-**Recording HUD.** A borderless panel shows the pipeline as it runs: one strand of light
-per stream (a recognizer on a mic), moving with your voice and flashing when that
-recognizer returns a chunk. After you let go, each strand falls into a single line as
-its result lands, one left behind by the deadline fades out, and a pulse runs along the
-line and through your words while the correction model works. All damped springs, ~2ms
-of main-thread time per frame. It's a non-activating `NSPanel`, so it never steals focus
-from the field you're dictating into. `scripts/preview_hud.py` plays a scripted
-dictation through it.
+**Recording HUD.** A small ink-black capsule shows the pipeline as it runs, opening out of
+a dot when you press the key. Inside, each stream (a recognizer on a mic) is a curtain of
+aurora: its rays climb higher the louder you speak, and it flares when that recognizer
+returns a chunk. After you let go the curtains settle, one by one as their results land,
+into a single glowing hem, and every word the correction model types sends light running
+along it and on through the words — so a stalled stream looks stalled. A thin light runs
+round the edge while the work happens. A dictation typed without correction flashes once;
+one you call off draws itself in to a point. ~1.6ms of main-thread time per frame: the
+aurora is computed with numpy at 1x over its strip alone, and its glow is a copy blurred
+by Core Image on the GPU. It never takes focus from the field you're dictating into.
+
+![The recording HUD through one dictation: listening, words arriving, the streams merging, the correction streaming in](demos/hud_demo.gif)
+
+*Rendered from the app's own drawing code over a macOS wallpaper. `scripts/preview_hud.py`
+plays the same dictation through the real panel.*
 
 **Text editing mode.** Select any text, press the hotkey, and say "make this more
 formal" — the selection is rewritten in place.
@@ -88,11 +117,21 @@ formal" — the selection is rewritten in place.
 (casual for chat apps, strict for documents), and recent dictations give it context for
 resolving pronouns.
 
-**Output routing** *(experimental, off by default)*. The Accessibility API enumerates
-text fields across your open apps and the model picks where the dictation belongs. It
-ships disabled: across 628 logged decisions it kept the focused field 88% of the time,
-and the 12% that retargeted were wrong often enough that undoing them cost more than the
-saved click.
+---
+
+## 🧪 Tried and removed
+
+**Output routing.** MergeScribe used to walk the Accessibility trees of open apps, hand
+the model an inventory of text fields, and let it pick where a dictation belonged. Across
+628 logged decisions it kept the focused field 88% of the time, and the 12% that moved
+were wrong often enough that undoing them cost more than the saved click. Most people
+dictate into the field they're looking at, so it was ~900 lines serving the rare case
+badly. It's gone.
+
+**Regex filler removal.** "um" and "uh" are the only filler words safe to delete
+blindly, and they're 2% of what the correction model actually removes. The most-deleted
+word is "like" — 6× more often than "um" — and it's exactly the one that can't go
+without judgment: "it's like a queue" needs it.
 
 ---
 
@@ -117,7 +156,7 @@ it in Settings after launching. It powers cloud STT and LLM correction.
 | Permission | Needed for |
 |------------|-----------|
 | Microphone | Recording |
-| Accessibility | Capturing your edits, field routing (grant to your terminal if running from source) |
+| Accessibility | Capturing your edits to typed text (grant to your terminal if running from source) |
 | Input Monitoring | Hotkey detection and typing output (macOS prompts on first run) |
 
 ---
@@ -162,6 +201,5 @@ on silence, so those samples would teach the model to do the same.
 ## 🗺️ Roadmap
 
 - **Ship the fine-tune pipeline** — turn the collected corpus into a LoRA on Parakeet.
-- **Smarter routing** — richer context signals for choosing the output target.
 
 License: MIT

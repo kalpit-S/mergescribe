@@ -46,15 +46,20 @@ SCRIPT = [
     (1.4, "partial_text", (S, "so I was thinking we should")),
     (1.6, "stream_landed", (S, STREAMS[1], False)),
     (1.75, "stream_landed", (S, STREAMS[2], False)),
-    (2.8, "partial_text", (S, "so I was thinking we should merge all the strands into one")),
+    (2.8, "partial_text", (S, "so I was thinking we should merge all the streams into one")),
     (3.8, "set_status", ("processing",)),
     (4.1, "stream_landed", (S, STREAMS[0], True)),
     (4.7, "stream_landed", (S, STREAMS[1], True)),
     (5.5, "stream_dropped", (S, STREAMS[2])),
     (5.5, "transcription_done", (S,)),
-    (7.2, "set_status", ("idle",)),
 ]
-LENGTH = 8.0
+# The correction streams in bursts, the way the model actually sends them:
+# a clump of tokens, a pause, another clump.
+for burst, at in enumerate((6.2, 6.55, 7.0, 7.3)):
+    for k in range(4):
+        SCRIPT.append((round(at + k * 0.045, 3), "token_typed", (S,)))
+SCRIPT += [(8.0, "set_status", ("idle",))]
+LENGTH = 8.8
 
 
 def play(hud: RecordingHUD, loop: bool) -> None:

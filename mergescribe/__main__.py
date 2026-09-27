@@ -13,6 +13,7 @@ from typing import Callable, Optional
 from pynput import keyboard
 
 from .config import Config
+from .ducking import Ducker
 from .audio import AudioEngine
 from .input import InputController
 from .session import Session, SessionManager
@@ -22,6 +23,7 @@ from .providers import ProviderRegistry
 from .providers.parakeet import ParakeetProvider
 from .providers.openrouter_stt import OpenRouterSTTProvider
 from .ui.menu_bar import MenuBarApp
+from .logging_tag import tagged
 from .ui.hud import RecordingHUD
 
 
@@ -35,6 +37,7 @@ training_writer: Optional[TrainingDataWriter] = None
 menu_bar: MenuBarApp
 hud: Optional[RecordingHUD] = None
 current_session: Optional[Session] = None
+ducker = Ducker()
 _keyboard_listener: Optional[keyboard.Listener] = None
 
 
@@ -51,6 +54,11 @@ class _Tee:
         self._file.write(f"\n===== session start {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
 
     def write(self, data):
+        if data and "\n" in data:
+            data = "".join(tagged(part) if part else part
+                           for part in data.splitlines(keepends=True))
+        elif data:
+            data = tagged(data)
         self._stream.write(data)
         try:
             self._file.write(data)
@@ -178,11 +186,15 @@ def _desired_provider_factories(config: Config) -> dict[str, tuple[Callable[[], 
         else:
             print(f"  Unknown or unconfigured provider: {name}")
 
+    def keyterms() -> list:
+        from .vocabulary import known_terms
+        return known_terms() if config.learn_vocabulary else []
+
     if config.openrouter_api_key and config.openrouter_stt_models:
         for model in config.openrouter_stt_models:
             provider = OpenRouterSTTProvider(config.openrouter_api_key, model)
             desired[provider.name] = (
-                lambda key=config.openrouter_api_key, model=model: OpenRouterSTTProvider(key, model),
+                lambda key=config.openrouter_api_key, model=model: OpenRouterSTTProvider(key, model, keyterms),
                 ("openrouter", config.openrouter_api_key, model),
             )
 
@@ -271,6 +283,8 @@ def on_start() -> None:
     audio_engine.on_chunk_ready = session.on_chunk_ready
     audio_engine.start_recording()
     set_status("recording")
+    if config.duck_while_recording:
+        ducker.duck()
 
     session.start(mics=active_mics)
     metrics.log("recording_started", session_id=str(session.id))
@@ -285,6 +299,7 @@ def on_stop() -> None:
 
     # Get final chunk (disconnects callback)
     final_chunk = audio_engine.stop_recording()
+    ducker.restore()
 
     set_status("processing")
 
@@ -323,6 +338,7 @@ def shutdown() -> None:
     if hud is not None:
         hud.shutdown()
 
+    ducker.restore()       # quitting mid-dictation must not leave the volume down
     audio_engine.shutdown()
     session_manager.providers.shutdown()
     metrics.shutdown()

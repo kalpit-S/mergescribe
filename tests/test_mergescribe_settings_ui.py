@@ -56,8 +56,3 @@ class TestListParsing:
         from mergescribe.ui.settings import _words
 
         assert _words("a/b c/d\ne/f  a/b") == ["a/b", "c/d", "e/f"]
-
-    def test_lines_drop_blanks(self):
-        from mergescribe.ui.settings import _lines
-
-        assert _lines("Slack\n\n  Claude \n") == ["Slack", "Claude"]

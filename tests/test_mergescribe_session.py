@@ -21,7 +21,6 @@ class TestSession:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -42,7 +41,10 @@ class TestSession:
 
     def test_session_start_captures_context(self):
         """Test that session start captures app context."""
-        with patch('mergescribe.session.get_app_context') as mock_ctx:
+        # Neither may touch the real desktop: no synthetic Cmd+C, no real window.
+        with patch('mergescribe.session.get_app_context') as mock_ctx, \
+                patch('mergescribe.session.detect_selected_text', return_value=None), \
+                patch('mergescribe.session.capture_origin', return_value=None):
             from mergescribe.types import AppContext
             mock_ctx.return_value = AppContext(
                 app_name="Test App",
@@ -53,7 +55,7 @@ class TestSession:
             session = self.create_session()
             session.start()
 
-            assert session.is_active is True
+            assert session.is_capturing is True
             assert session.start_time > 0
             assert session.context.app_name == "Test App"
 
@@ -66,12 +68,12 @@ class TestSession:
         # Add chunk results - first has consensus, second doesn't
         session.chunk_results = [
             # Chunk 1: has consensus
-            ([
+            (1, [
                 TranscriptionResult(text="Hello world", provider="p1", mic="m1", latency_ms=100),
                 TranscriptionResult(text="Hello world", provider="p2", mic="m1", latency_ms=100),
             ], "Hello world"),
             # Chunk 2: no consensus
-            ([
+            (2, [
                 TranscriptionResult(text="How are you", provider="p1", mic="m1", latency_ms=100),
                 TranscriptionResult(text="How you are", provider="p2", mic="m1", latency_ms=100),
             ], None),
@@ -95,27 +97,6 @@ class TestSession:
         # No futures should be pending
         assert len(session.pending_futures) == 0
 
-    def test_session_chunk_creates_futures(self):
-        """Test that chunk creates transcription futures."""
-        session = self.create_session()
-
-        # Mock providers
-        mock_provider = Mock()
-        mock_provider.name = "test_provider"
-        mock_provider.transcribe = Mock(return_value=Mock(text="test"))
-        session.providers.values = Mock(return_value=[mock_provider])
-
-        # Non-empty chunk
-        chunk = {"mic1": np.random.randn(1000).astype(np.float32)}
-        session.on_chunk_ready(chunk)
-
-        # Give it time to submit
-        time.sleep(0.1)
-
-        # Should have pending futures
-        assert len(session.pending_futures) >= 1
-
-
 class TestSessionManager:
     """Tests for SessionManager class."""
 
@@ -126,7 +107,6 @@ class TestSessionManager:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -149,7 +129,6 @@ class TestSessionManager:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -197,7 +176,6 @@ class TestSessionManager:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -218,14 +196,12 @@ class TestSessionManager:
             history=TranscriptionHistory(),
             metrics=metrics,
         )
-        session.is_active = True
         session.is_capturing = True
         session.start_time = time.time()
 
         # Empty chunk: nothing to transcribe, so this exercises the teardown path
         session._finalize_impl({"mic1": np.array([], dtype=np.float32)})
 
-        assert session.is_active is False, "session left active after bookkeeping threw"
         assert session.is_capturing is False
         assert completed == [session], "on_complete never fired; manager would stay wedged"
 
@@ -240,12 +216,10 @@ class TestSessionManager:
 
         first = manager.start_session()
         first.is_capturing = True
-        first.is_active = True
         assert manager.is_busy() is True
 
         # Key released: still correcting and typing, but no longer holding the mic
         first.is_capturing = False
-        assert first.is_active is True
         assert manager.is_busy() is False
 
         with patch('mergescribe.session.play_busy_sound') as mock_sound:
@@ -285,7 +259,6 @@ class TestSessionTranscription:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 99      # never short-circuit on consensus
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = multiplier
         config.provider_deadline_min_ms = min_ms
@@ -322,7 +295,6 @@ class TestSessionTranscription:
     def test_start_announces_the_streams_that_will_run(self):
         observer = Mock()
         session, _ = self._deadline_session(1.0, 120, 0.0, observer=observer, run=False)
-        session.config_snapshot.field_routing_enabled = False
         with patch.object(type(session), "_capture_context"):
             session.start(mics=["mic1"])
         observer.streams_planned.assert_called_once_with(
@@ -349,14 +321,14 @@ class TestSessionTranscription:
         observer = Mock()
         observer.stream_landed.side_effect = RuntimeError("HUD gone")
         session, _ = self._deadline_session(0.0, 120, 0.0, observer=observer)
-        results, _ = session.chunk_results[0]
+        _, results, _ = session.chunk_results[0]
         assert sorted(r.provider for r in results) == ["fast", "slow"]
 
     def test_deadline_abandons_a_straggler(self):
         """The chunk should not pay for the slowest provider's tail."""
         session, elapsed = self._deadline_session(multiplier=1.0, min_ms=120, slow_seconds=3.0)
 
-        results, _ = session.chunk_results[0]
+        _, results, _ = session.chunk_results[0]
         assert [r.provider for r in results] == ["fast"]
         assert elapsed < 1.0, f"waited {elapsed:.2f}s for an abandoned provider"
 
@@ -364,21 +336,21 @@ class TestSessionTranscription:
         """multiplier 0 must restore the old always-wait behaviour."""
         session, _ = self._deadline_session(multiplier=0.0, min_ms=120, slow_seconds=0.35)
 
-        results, _ = session.chunk_results[0]
+        _, results, _ = session.chunk_results[0]
         assert sorted(r.provider for r in results) == ["fast", "slow"]
 
     def test_min_grace_protects_a_normally_slow_provider(self):
         """A provider inside the grace window is kept even though it is slowest."""
         session, _ = self._deadline_session(multiplier=1.0, min_ms=1500, slow_seconds=0.3)
 
-        results, _ = session.chunk_results[0]
+        _, results, _ = session.chunk_results[0]
         assert sorted(r.provider for r in results) == ["fast", "slow"]
 
     def test_deadline_never_fires_before_any_result(self):
         """If everything is slow there is nothing to compare against; wait."""
         session, _ = self._deadline_session(multiplier=1.0, min_ms=50, slow_seconds=0.0)
 
-        results, _ = session.chunk_results[0]
+        _, results, _ = session.chunk_results[0]
         assert len(results) == 2
 
     def test_serialized_provider_runs_on_primary_mic_only(self):
@@ -389,7 +361,6 @@ class TestSessionTranscription:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic_a", "mic_b"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -465,7 +436,6 @@ class TestSessionTranscription:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -500,7 +470,7 @@ class TestSessionTranscription:
 
         # Should have results with consensus
         assert len(session.chunk_results) == 1
-        results, consensus = session.chunk_results[0]
+        _, results, consensus = session.chunk_results[0]
         assert consensus == "Hello world"
 
     def test_transcription_without_consensus(self):
@@ -511,7 +481,6 @@ class TestSessionTranscription:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 900
@@ -546,7 +515,7 @@ class TestSessionTranscription:
 
         # Should have results without consensus
         assert len(session.chunk_results) == 1
-        results, consensus = session.chunk_results[0]
+        _, results, consensus = session.chunk_results[0]
         assert consensus is None
         assert len(results) == 2
 
@@ -631,6 +600,67 @@ class TestSessionOutput:
                         mock_type.assert_not_called()
 
 
+class TestBackToWhereItStarted:
+    """Dictating while reading something else: the words go where the dictation started."""
+
+    def _session(self):
+        from mergescribe.context import Origin
+        from mergescribe.session import Session, TranscriptionHistory
+        from mergescribe.types import AppContext, ConfigSnapshot
+        from uuid import uuid4
+
+        config = Mock(spec=ConfigSnapshot)
+        config.edit_feedback_enabled = False
+        session = Session(id=uuid4(), config_snapshot=config, providers=Mock(),
+                          output_lock=threading.Lock(), on_complete=Mock(),
+                          history=TranscriptionHistory())
+        session.start_time = session.finalize_start_time = time.time()
+        session.context = AppContext(app_name="Claude", window_title="chat", bundle_id="com.anthropic")
+        session.origin = Origin(pid=1, app=object(), window=object())
+        return session
+
+    def _output(self, here, comes_back):
+        session = self._session()
+        with patch("mergescribe.session.at_origin", return_value=here), \
+             patch("mergescribe.session.return_to", return_value=comes_back) as back, \
+             patch("mergescribe.session.type_text") as typer, \
+             patch("mergescribe.session.copy_to_clipboard") as clip, \
+             patch("mergescribe.session.notify"):
+            session._output("Ship it Friday.")
+        return typer, clip, back
+
+    def test_still_there_it_just_types(self):
+        typer, clip, back = self._output(here=True, comes_back=True)
+        typer.assert_called_once_with("Ship it Friday.")
+        back.assert_not_called()
+        clip.assert_not_called()
+
+    def test_moved_on_it_brings_the_window_back_and_types_there(self):
+        typer, clip, back = self._output(here=False, comes_back=True)
+        back.assert_called_once()
+        typer.assert_called_once_with("Ship it Friday.")
+        clip.assert_not_called()
+
+    def test_a_window_that_cannot_come_back_gets_the_clipboard(self):
+        """Closed since: nothing to type into, so nothing is typed anywhere else."""
+        typer, clip, back = self._output(here=False, comes_back=False)
+        typer.assert_not_called()
+        clip.assert_called_once_with("Ship it Friday.")
+
+    def test_the_correction_streams_into_the_window_it_brought_back(self):
+        from mergescribe.types import TranscriptionResult
+
+        session = self._session()
+        with patch("mergescribe.session.at_origin", return_value=False), \
+             patch("mergescribe.session.return_to", return_value=True), \
+             patch.object(type(session), "_stream_correction", return_value="corrected") as streamed, \
+             patch.object(type(session), "_clipboard_correction") as clipboard:
+            session._correct_and_output(
+                [TranscriptionResult(text="raw", provider="p", mic="m", latency_ms=1)], "raw")
+        streamed.assert_called_once()
+        clipboard.assert_not_called()
+
+
 class TestSessionFinalization:
     """Tests for session finalization."""
 
@@ -662,7 +692,7 @@ class TestSessionFinalization:
 
         # Add some results
         session.chunk_results = [
-            ([TranscriptionResult(text="Hello", provider="p1", mic="m1", latency_ms=100)], "Hello"),
+            (1, [TranscriptionResult(text="Hello", provider="p1", mic="m1", latency_ms=100)], "Hello"),
         ]
 
         with patch('mergescribe.session.get_app_context') as mock_ctx:
@@ -675,8 +705,8 @@ class TestSessionFinalization:
                 # Callback should be called
                 on_complete.assert_called_once_with(session)
 
-    def test_fast_path_single_chunk_consensus(self):
-        """Test fast path when single chunk has consensus."""
+    def test_agreed_text_still_goes_through_the_judge_or_correction(self):
+        """Consensus is not a licence to type: "um, ship it" can be agreed on too."""
         from mergescribe.session import Session, TranscriptionHistory
         from mergescribe.types import ConfigSnapshot, TranscriptionResult, AppContext
         from uuid import uuid4
@@ -701,19 +731,20 @@ class TestSessionFinalization:
 
         # Single chunk with consensus
         session.chunk_results = [
-            ([TranscriptionResult(text="Hello world", provider="p1", mic="m1", latency_ms=100)], "Hello world"),
+            (1, [TranscriptionResult(text="Hello world", provider="p1", mic="m1", latency_ms=100)], "Hello world"),
         ]
 
-        with patch('mergescribe.session.get_app_context') as mock_ctx:
-            with patch('mergescribe.session.type_text'):
-                with patch.object(session, '_output') as mock_output:
-                    mock_ctx.return_value = session.context
+        with patch('mergescribe.session.get_app_context') as mock_ctx, \
+                patch('mergescribe.session.type_text'), \
+                patch.object(session, '_output') as typed_as_is, \
+                patch.object(session, '_correct_and_output') as corrected:
+            mock_ctx.return_value = session.context
+            session._finalize_impl({})
 
-                    # Run finalization
-                    session._finalize_impl({})
-
-                    # Should use fast path - output consensus directly
-                    mock_output.assert_called_once_with("Hello world")
+        # Recognizers agreeing settles the words, not whether they need tidying:
+        # that is the judge's and the correction model's call.
+        typed_as_is.assert_not_called()
+        corrected.assert_called_once()
 
 
 class TestNoSpeechGuard:
@@ -785,6 +816,32 @@ class TestFinalizeSteps:
         session.context = AppContext(app_name="Editor", window_title="t", bundle_id="com.x")
         return session
 
+    def _edited(self, output_method, llm_model=None):
+        """Run the edit watch to an "edited" outcome and return the corpus row written."""
+        from mergescribe.types import LLMCorrectionResult
+
+        session = self._session(edit_feedback_enabled=True)
+        session.output_method = output_method
+        if llm_model:
+            session.llm_result = LLMCorrectionResult(text="t", provider="openrouter", model=llm_model,
+                                                     input_tokens_est=1, latency_ms=1.0)
+        rows, callbacks = [], []
+        with patch("mergescribe.feedback.watch_for_edits",
+                   side_effect=lambda text, cb, **kw: callbacks.append(cb)), \
+                patch("mergescribe.feedback.record_correction", side_effect=rows.append):
+            session._start_edit_watch("ship it friday")
+            callbacks[0]("edited", 8.0, "ship it friday", "ship it Friday")
+        return rows[0]
+
+    def test_a_fixed_correction_records_the_model_that_wrote_it(self):
+        row = self._edited("streamed", llm_model="openai/gpt-6-luna")
+        assert row["output_method"] == "streamed" and row["correction_model"] == "openai/gpt-6-luna"
+
+    def test_a_fixed_raw_transcript_names_no_correction_model(self):
+        """Typed by the judge or consensus: whatever was wrong came from a recognizer."""
+        row = self._edited("judged", llm_model="openai/gpt-6-luna")   # the correction ran but lost
+        assert row["output_method"] == "judged" and row["correction_model"] == ""
+
     def test_collect_final_audio_accumulates_per_mic(self):
         session = self._session()
         session.all_audio["mic1"] = [np.zeros(10, dtype=np.float32)]
@@ -805,16 +862,25 @@ class TestFinalizeSteps:
         buf[:] = 0.0
         assert session.all_audio["mic1"][0].sum() == 100
 
-    def test_history_context_stays_empty(self):
+    def test_earlier_dictations_never_reach_the_prompt(self):
         """Regression guard: feeding prior dictations back made the model echo them."""
+        from mergescribe.types import TranscriptionResult
+
         session = self._session()
-        assert session._correction_kwargs()["history_context"] == ""
+        session.config_snapshot.openrouter_api_key = "k"
+        session.config_snapshot.learn_vocabulary = False
+        session.history.add("the migration plan from this morning", destination="Editor")
+        prompts = []
+        with patch("mergescribe.correct._stream_openrouter",
+                   side_effect=lambda prompt, *a, **k: (prompts.append(prompt), ("Ship it.", True))[1]):
+            session._clipboard_correction(
+                [TranscriptionResult(text="ship it", provider="p", mic="m", latency_ms=1)])
+        assert prompts and "migration plan" not in prompts[0]
 
     def test_stream_correction_types_tokens_and_returns_them(self):
         from mergescribe.types import TranscriptionResult
 
         session = self._session()
-        session.field_targets = None          # routing off: no TARGET line to strip
         typed = []
 
         def fake_correct(results, context, config, on_delta=None, **kw):
@@ -836,7 +902,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult
 
         session = self._session()
-        session.field_targets = None
         typed = []
 
         def fake_correct(results, context, config, on_delta=None, **kw):
@@ -858,7 +923,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult
 
         session = self._session(space_between_dictations=True)
-        session.field_targets = None
         session.history.add("earlier words", destination=session._output_destination())
 
         with patch("mergescribe.correct.correct_with_llm",
@@ -873,7 +937,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult
 
         session = self._session(space_between_dictations=True)
-        session.field_targets = None   # history empty: not a continuation
 
         with patch("mergescribe.correct.correct_with_llm",
                    lambda *a, on_delta=None, **k: on_delta("Ship it.") or ""), \
@@ -902,7 +965,6 @@ class TestFinalizeSteps:
 
         session = self._session(space_between_dictations=True)
         session.history.add("earlier", destination=session._output_destination())
-        session.field_targets = None
         assert session._continues_previous()
         with patch("mergescribe.correct.correct_with_llm",
                    lambda *a, on_delta=None, **k: ""), \
@@ -916,7 +978,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult
 
         session = self._session()
-        session.field_targets = None
         with patch("mergescribe.correct.correct_with_llm",
                    lambda *a, on_delta=None, **k: ""), \
              patch("mergescribe.session.type_text"):
@@ -927,7 +988,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult, AppContext
 
         session = self._session()
-        session.field_targets = None
         elsewhere = AppContext(app_name="Other", window_title="w", bundle_id="com.other")
 
         with patch("mergescribe.session.get_app_context", return_value=elsewhere), \
@@ -947,7 +1007,6 @@ class TestFinalizeSteps:
         from mergescribe.types import TranscriptionResult, AppContext
 
         session = self._session()
-        session.field_targets = None
         elsewhere = AppContext(app_name="Other", window_title="w", bundle_id="com.other")
 
         with patch("mergescribe.session.get_app_context", return_value=elsewhere), \
@@ -974,7 +1033,6 @@ class TestInFlightSpeech:
         config = Mock(spec=ConfigSnapshot)
         config.sample_rate = 16000
         config.consensus_threshold = 2
-        config.consensus_max_words = 15
         config.enabled_mics = ["mic1"]
         config.provider_deadline_multiplier = 1.0
         config.provider_deadline_min_ms = 2000
@@ -1055,7 +1113,6 @@ class TestCalledOff:
         helper = TestFinalizeSteps()
         session = helper._session(space_between_dictations=continuing)
         session.metrics = Mock()
-        session.field_targets = None
         if continuing:
             session.history.add("earlier", destination=session._output_destination())
         here = session.context
@@ -1103,3 +1160,222 @@ class TestCalledOff:
         session, typer, _, _ = self._run(["[WIP] ", "ship it"])
         assert "".join(c.args[0] for c in typer.call_args_list) == "[WIP] ship it"
         assert not self._called_off(session)
+
+
+class TestPartsInOrder:
+    """A long dictation arrives in parts; they must come out in the order they were spoken."""
+
+    def _session(self, delays):
+        from mergescribe.session import Session, TranscriptionHistory
+        from mergescribe.types import ConfigSnapshot, TranscriptionResult
+        from uuid import uuid4
+
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 99
+        config.enabled_mics = ["mic1"]
+        config.provider_deadline_multiplier = 1.0
+        config.provider_deadline_min_ms = 2000
+        config.sample_rate = 16000
+
+        provider = Mock()
+        provider.name = "p"
+        provider.single_instance = False
+
+        def transcribe(audio, mic):
+            part = int(audio[0])           # each part's audio says which part it is
+            time.sleep(delays[part])
+            return TranscriptionResult(text=f"part {part}", provider="p", mic=mic, latency_ms=0)
+        provider.transcribe = transcribe
+        registry = Mock()
+        registry.values = Mock(return_value=[provider])
+        return Session(id=uuid4(), config_snapshot=config, providers=registry,
+                       output_lock=threading.Lock(), on_complete=Mock(), history=TranscriptionHistory())
+
+    def test_an_earlier_part_that_finishes_last_still_comes_first(self):
+        """The 30s part is still transcribing when the short tail comes back."""
+        session = self._session({1: 0.3, 2: 0.0})
+        session.on_chunk_ready({"mic1": np.full(1600, 1.0, dtype=np.float32)})
+        session._transcribe_remaining({"mic1": np.full(1600, 2.0, dtype=np.float32)})
+        texts, results = session._aggregate_results()
+        assert texts == ["part 1", "part 2"]
+        assert [r.text for r in results] == ["part 1", "part 2"]
+
+
+class TestSelectionIsKnownBeforeRouting:
+    def test_a_short_command_waits_for_the_selection_before_deciding(self):
+        """Selection capture (a synthetic Cmd+C) can outlast a fast transcription."""
+        from mergescribe.session import Session, TranscriptionHistory
+        from mergescribe.types import ConfigSnapshot, TranscriptionResult
+        from uuid import uuid4
+
+        config = Mock(spec=ConfigSnapshot)
+        config.sample_rate = 16000
+        config.training_enabled = False
+        config.edit_feedback_enabled = False
+        session = Session(id=uuid4(), config_snapshot=config, providers=Mock(),
+                          output_lock=threading.Lock(), on_complete=Mock(), history=TranscriptionHistory())
+        session.start_time = time.time()
+
+        def capture():
+            time.sleep(0.3)
+            session.selected_text = "the selected paragraph"
+        session._context_thread = threading.Thread(target=capture)
+        session._context_thread.start()
+
+        result = TranscriptionResult(text="make this more formal", provider="p", mic="m", latency_ms=1)
+        with patch.object(type(session), "_has_speech", return_value=True), \
+             patch.object(type(session), "_transcribe_remaining"), \
+             patch.object(type(session), "_aggregate_results", return_value=(["make this more formal"], [result])), \
+             patch.object(type(session), "_run_edit_mode") as edit, \
+             patch.object(type(session), "_correct_and_output") as dictate:
+            session._finalize_impl({"mic1": np.ones(1600, dtype=np.float32)})
+        edit.assert_called_once_with("make this more formal")
+        dictate.assert_not_called()
+
+
+class TestStreamingIntoTheField:
+    """What happens to streamed text when the world changes under it."""
+
+    def _session(self):
+        from mergescribe.context import Origin
+        from mergescribe.session import Session, TranscriptionHistory
+        from mergescribe.types import AppContext, ConfigSnapshot
+        from uuid import uuid4
+
+        config = Mock(spec=ConfigSnapshot)
+        config.judge_enabled = False
+        config.space_between_dictations = False
+        config.custom_instructions = ""
+        session = Session(id=uuid4(), config_snapshot=config, providers=Mock(),
+                          output_lock=threading.Lock(), on_complete=Mock(), history=TranscriptionHistory())
+        session.context = AppContext(app_name="Claude", window_title="chat", bundle_id="com.anthropic")
+        session.origin = Origin(pid=1, app=object(), window=object())
+        return session
+
+    def _stream(self, session, correction, here=(True,)):
+        from mergescribe.types import TranscriptionResult
+
+        typed, clipboard = [], []
+        answers = iter(list(here) + [here[-1]] * 50)
+        with patch("mergescribe.correct.correct_with_llm", correction), \
+             patch("mergescribe.session.at_origin", side_effect=lambda origin: next(answers)), \
+             patch("mergescribe.session.type_text", side_effect=typed.append), \
+             patch("mergescribe.session.copy_to_clipboard", side_effect=clipboard.append), \
+             patch("mergescribe.session.notify"):
+            result = session._stream_correction(
+                [TranscriptionResult(text="ship it friday", provider="p", mic="m", latency_ms=1)])
+        return result, "".join(typed), clipboard
+
+    def test_moving_to_another_window_stops_typing_and_hands_over_the_rest(self):
+        def correction(results, context, config, on_delta=None, **kwargs):
+            for token in ("Ship ", "it ", "Friday."):
+                on_delta(token)
+                time.sleep(0.12)        # past the 100ms between focus checks
+
+        session = self._session()
+        result, typed, clipboard = self._stream(session, correction, here=(True, False))
+        assert typed == "Ship "
+        assert clipboard == ["it Friday."]
+        assert session._partial_output is True
+
+    def test_a_correction_cut_off_after_typing_puts_the_whole_text_on_the_clipboard(self):
+        from mergescribe.correct import CorrectionInterrupted
+
+        def correction(results, context, config, on_delta=None, **kwargs):
+            on_delta("Ship it")
+            raise CorrectionInterrupted("Ship it", "We ship Friday.")
+
+        result, typed, clipboard = self._stream(self._session(), correction)
+        assert typed == "Ship it" and result == "Ship it"
+        assert clipboard == ["We ship Friday."]
+
+
+class TestOutputOrder:
+    def test_a_later_dictation_waits_for_the_earlier_one(self):
+        from mergescribe.session import OutputOrder
+
+        order, events = OutputOrder(), []
+        first, second = order.take(), order.take()
+
+        def later():
+            order.wait(second)
+            events.append("second types")
+        thread = threading.Thread(target=later)
+        thread.start()
+        time.sleep(0.1)
+        events.append("first types")
+        order.done(first)
+        thread.join(1.0)
+        assert events == ["first types", "second types"]
+
+    def test_finishing_out_of_order_does_not_skip_a_turn(self):
+        from mergescribe.session import OutputOrder
+
+        order = OutputOrder(patience=0.2)
+        a, b, c = order.take(), order.take(), order.take()
+        order.done(b)                      # b gave up waiting and finished early
+        started = time.monotonic()
+        order.wait(c)                      # a is still going: c must still wait
+        assert time.monotonic() - started >= 0.15
+        order.done(a)
+        started = time.monotonic()
+        order.wait(c)
+        assert time.monotonic() - started < 0.05
+
+    def test_a_session_that_fails_still_gives_up_its_turn(self):
+        from mergescribe.session import OutputOrder, Session, TranscriptionHistory
+        from mergescribe.types import ConfigSnapshot
+        from uuid import uuid4
+
+        order = OutputOrder(patience=5.0)
+        config = Mock(spec=ConfigSnapshot)
+        config.training_enabled = False
+        session = Session(id=uuid4(), config_snapshot=config, providers=Mock(), output_lock=threading.Lock(),
+                          on_complete=Mock(), history=TranscriptionHistory(), output_order=order)
+        session.start_time = time.time()
+        with patch.object(type(session), "_finalize_impl", side_effect=lambda chunk: session._teardown()):
+            session.finalize({})
+        time.sleep(0.1)
+        started = time.monotonic()
+        order.wait(order.take())
+        assert time.monotonic() - started < 0.5
+
+
+class TestWaitingForRecognizers:
+    def _session(self, replies, min_ms, multiplier=1.0):
+        from mergescribe.session import Session, TranscriptionHistory
+        from mergescribe.types import ConfigSnapshot, TranscriptionResult
+        from uuid import uuid4
+
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 99
+        config.enabled_mics = ["mic1"]
+        config.provider_deadline_multiplier = multiplier
+        config.provider_deadline_min_ms = min_ms
+
+        def make(name, delay, text):
+            p = Mock()
+            p.name, p.single_instance = name, False
+            p.transcribe = lambda audio, mic: (time.sleep(delay),
+                                               TranscriptionResult(text=text, provider=name, mic=mic, latency_ms=0))[1]
+            return p
+        registry = Mock()
+        registry.values = Mock(return_value=[make(*r) for r in replies])
+        return Session(id=uuid4(), config_snapshot=config, providers=registry, output_lock=threading.Lock(),
+                       on_complete=Mock(), history=TranscriptionHistory())
+
+    def test_an_empty_answer_does_not_start_the_clock_on_the_others(self):
+        """A recognizer that heard nothing is not evidence the rest are late."""
+        session = self._session([("blank", 0.0, ""), ("slow", 0.6, "ship it friday")], min_ms=300)
+        session._transcribe_chunk_with_consensus({"mic1": np.ones(1600, dtype=np.float32)})
+        (_, results, _), = session.chunk_results
+        assert "ship it friday" in [r.text for r in results]
+
+    def test_the_hard_limit_holds_after_a_first_answer(self):
+        import mergescribe.session as session_module
+
+        session = self._session([("fast", 0.2, "ship it"), ("slow", 1.5, "ship it friday")], min_ms=0, multiplier=10.0)
+        with patch.object(session_module, "_CHUNK_HARD_TIMEOUT", 0.5):
+            started = time.monotonic()
+            session._transcribe_chunk_with_consensus({"mic1": np.ones(1600, dtype=np.float32)})
+        assert time.monotonic() - started < 1.0

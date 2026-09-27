@@ -1,8 +1,12 @@
 """
-Consensus checking for transcription results.
+Consensus: enough distinct recognizers heard the same words.
 
-Uses normalized text comparison to handle punctuation differences.
-"Hello world." and "Hello world" and "Hello, world" all match.
+It settles what was said, so a chunk stops waiting for slower recognizers.
+It does not settle whether the text needs tidying - "um, ship it" can be
+agreed on too - so agreed text still goes to the judge and the correction
+model like any other.
+
+Compared after normalising: "Hello world." and "Hello, world" match.
 """
 
 import re
@@ -10,25 +14,6 @@ from collections import Counter
 from typing import Optional, List
 
 from .types import TranscriptionResult, ConfigSnapshot
-
-
-# Filler words that should trigger LLM correction
-FILLER_WORDS = {"um", "uh", "uhm", "umm", "hmm", "hm", "er", "ah", "like", "you know", "i mean", "sort of", "kind of"}
-
-
-def _contains_filler(text: str) -> bool:
-    """Check if text contains filler words."""
-    words = text.lower().split()
-    # Check single-word fillers
-    for word in words:
-        if word in FILLER_WORDS:
-            return True
-    # Check multi-word fillers
-    text_lower = text.lower()
-    for filler in FILLER_WORDS:
-        if " " in filler and filler in text_lower:
-            return True
-    return False
 
 
 def normalize_for_matching(text: str) -> str:
@@ -40,9 +25,10 @@ def normalize_for_matching(text: str) -> str:
         "Hello, world" -> "hello world"
         "Hello   world" -> "hello world"
     """
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    text = ' '.join(text.lower().split())  # Normalize whitespace
-    return text
+    # Apostrophes join a word ("don't"); any other mark separates words, so
+    # "re-sign" stays two words and doesn't match "resign".
+    text = re.sub(r"[^\w\s]", " ", text.replace("'", "").replace("\u2019", ""))
+    return " ".join(text.lower().split())
 
 
 def check_consensus(
@@ -81,22 +67,11 @@ def check_consensus(
     # transcribing two mics agrees with itself on its own systematic errors:
     # two mics rule out acoustic noise, not model bias. Proper nouns and jargon
     # (a surname heard as a common word) are pure model prior, so both mics return
-    # the identical mistake, it carries no filler to trip the gate below, and
-    # the fast path would type it while skipping the LLM cleanup that exists to
-    # fix it. Cross-provider agreement is evidence; cross-mic agreement is not.
+    # the identical mistake. Cross-provider agreement is evidence; cross-mic
+    # agreement is not.
     agreeing_providers = {r.provider for r, norm in normalized if norm == winner_norm}
 
-    # Check thresholds
-    if len(agreeing_providers) >= config.consensus_threshold:
-        word_count = len(winner_norm.split())
-        if word_count <= config.consensus_max_words:
-            # Check for filler words - route to LLM if found
-            if _contains_filler(winner_norm):
-                return None
-
-            # Return original text (with punctuation) from first match
-            for result, norm in normalized:
-                if norm == winner_norm:
-                    return result.text
-
-    return None
+    if len(agreeing_providers) < config.consensus_threshold:
+        return None
+    # The original text (with punctuation) from the first match
+    return next(result.text for result, norm in normalized if norm == winner_norm)

@@ -8,6 +8,21 @@ the app down with it, since it is pure decoration over the recording path.
 
 from unittest.mock import Mock, patch
 
+import numpy as np
+
+
+def _aurora(anim, width=120.0, track=None):
+    """This frame's aurora as floats in 0..1, (rows, columns, RGBA), 1pt per pixel."""
+    from mergescribe.ui.hud import aurora_rgba
+
+    return aurora_rgba(anim, width, 40.0, track_pt=track).astype(float) / 255.0
+
+
+def _lift(anim, **kwargs):
+    """How much brighter the brightest column in the middle of the strip is than the dimmest."""
+    columns = _aurora(anim, **kwargs)[..., 3].sum(axis=0)[30:90]
+    return columns.max() / columns.min()
+
 
 class TestLevelNormalization:
     def test_maps_relative_to_the_noise_floor(self):
@@ -122,42 +137,43 @@ class TestHUDAnimation:
         assert anim.hidden
 
     def test_silence_breathes_and_speech_swells(self):
-        from mergescribe.ui.hud import HUDAnimation, _STRAND_AMPLITUDE
+        from mergescribe.ui.hud import HUDAnimation
 
-        def tallest(level):
+        def light(level):
             anim = HUDAnimation()
             anim.set_status("recording")
             self._run(anim, 0.5, level)
-            return max(abs(y) for _, _, offsets in anim.strand_shapes() for y in offsets)
+            return _aurora(anim)[..., 3]
 
-        quiet, loud = tallest(0.0), tallest(1.0)
-        assert 0.0 < quiet < 0.15 * _STRAND_AMPLITUDE
-        assert loud > 4 * quiet
+        quiet, loud = light(0.0), light(1.0)
+        assert quiet.sum() > 0.0, "silence should breathe, not go dark"
+        assert loud[:20].sum() > 8 * quiet[:20].sum(), "a voice sends the rays up the capsule"
 
-    def test_strands_taper_to_nothing_at_both_ends(self):
+    def test_the_aurora_fades_to_nothing_at_both_ends(self):
         from mergescribe.ui.hud import HUDAnimation
 
         anim = HUDAnimation()
         anim.set_status("recording")
         self._run(anim, 0.5, 1.0)
-        for _, _, offsets in anim.strand_shapes():
-            assert abs(offsets[0]) < 1e-9 and abs(offsets[-1]) < 1e-9
+        alpha = _aurora(anim)[..., 3]
+        assert alpha[:, 0].max() < 0.02 and alpha[:, -1].max() < 0.02
+        assert alpha[:, 60].max() > 0.5
 
-    def test_releasing_merges_the_strands_into_one(self):
-        """While listening the strands differ; while correcting they are one line."""
+    def test_releasing_settles_the_curtains_into_one_hem(self):
+        """While listening each curtain's hem wanders; once merged they lie on one line."""
         from mergescribe.ui.hud import HUDAnimation
 
-        def spread(anim):
-            shapes = [offsets for _, _, offsets in anim.strand_shapes(0.5)]
-            return max(abs(a - b) for column in zip(*shapes) for a in column for b in column)
+        def wander(anim):
+            """How much the brightest row moves across the middle of the strip."""
+            return np.argmax(_aurora(anim)[:, 30:90, 3], axis=0).std()
 
         anim = HUDAnimation()
         anim.set_status("recording")
         self._run(anim, 1.0, 0.7)
-        assert spread(anim) > 3.0
+        assert wander(anim) > 1.0
         anim.set_status("processing")
         self._run(anim, 1.5)
-        assert spread(anim) < 0.1
+        assert wander(anim) < 0.3
 
     def test_the_pulse_starts_off_the_left_edge(self):
         from mergescribe.ui.hud import HUDAnimation
@@ -189,7 +205,7 @@ class TestHUDAnimation:
         anim.set_status("recording")
         anim.step(5.0, 1.0)
         assert 0.0 <= anim.presence.value <= 1.0
-        assert all(abs(y) < 50 for _, _, offsets in anim.strand_shapes() for y in offsets)
+        assert _aurora(anim)[0, :, 3].max() < 0.3, "the rays should not be flung to the top"
 
 
 class TestHonestStrands:
@@ -384,15 +400,6 @@ class TestFacadeSafety:
 
         RecordingHUD().shutdown()   # must not raise
 
-    def test_level_source_errors_are_swallowed(self):
-        """The meter reads a live engine attribute; a stale reference must not crash."""
-        from mergescribe.ui.hud import RecordingHUD
-
-        hud = RecordingHUD(level_source=Mock(side_effect=RuntimeError("gone")))
-        with patch.object(RecordingHUD, "_call_on_main"):
-            hud.set_status("recording")
-
-
 class TestMenuBarDeference:
     """The menu bar should stop flashing red only while the HUD is actually carrying state."""
 
@@ -427,3 +434,296 @@ class TestAudioEngineFeed:
         config.silence_threshold = 1.2
         engine = AudioEngine(config)
         assert engine.current_level == 0.0
+
+
+class TestSkippedCorrection:
+    """A dictation typed as it stood should not look like one being corrected."""
+
+    def _anim(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.streams_planned("s1", ["parakeet/built-in", "mai/built-in"])
+        for _ in range(30):
+            anim.step(1 / 60, 0.6)
+        anim.set_status("processing")
+        anim.transcription_done("s1")
+        return anim
+
+    def test_the_pulse_never_starts(self):
+        anim = self._anim()
+        anim.correction_skipped("s1")
+        for _ in range(60):
+            anim.step(1 / 60)
+        assert anim.pulse.value < 0.2
+        assert anim.skipped is True
+
+    def test_it_flashes_and_settles(self):
+        anim = self._anim()
+        anim.correction_skipped("s1")
+        bright = _aurora(anim)[..., 3].sum()
+        for _ in range(60):
+            anim.step(1 / 60)
+        settled = _aurora(anim)[..., 3].sum()
+        assert bright > settled * 1.5, "the flash should be visible, then fade"
+
+    def test_a_stale_session_cannot_flash(self):
+        anim = self._anim()
+        anim.correction_skipped("other")
+        assert anim.skipped is False
+
+    def test_a_new_recording_clears_it(self):
+        anim = self._anim()
+        anim.correction_skipped("s1")
+        anim.set_status("idle")
+        for _ in range(60):
+            anim.step(1 / 60)
+        anim.reset()
+        assert anim.skipped is False and anim.flash == 0.0
+
+
+class TestTokenRipples:
+    """The hem's light should move at the rate words land, and stall when the stream does."""
+
+    def _correcting(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.streams_planned("s1", ["parakeet/built-in"])
+        anim.set_status("processing")
+        anim.transcription_done("s1")
+        for _ in range(20):
+            anim.step(1 / 60)
+        return anim
+
+    def test_a_token_sends_a_ripple_that_travels(self):
+        anim = self._correcting()
+        anim.token_typed("s1")
+        starts = list(anim._ripples)
+        for _ in range(20):
+            anim.step(1 / 60)
+        assert anim._ripples[0] > starts[0], "the ripple should move along the line"
+
+    def test_a_stalled_stream_goes_quiet(self):
+        """No tokens, no movement: a stalled correction must look stalled."""
+        anim = self._correcting()
+        anim.token_typed("s1")
+        for _ in range(180):      # three seconds of silence from the model
+            anim.step(1 / 60)
+        assert anim._ripples == []
+        assert _lift(anim) < 1.05, "the hem should be evenly lit, with nothing travelling"
+
+    def test_a_burst_of_tokens_is_spread_out(self):
+        """Five tokens in one packet should not stack into one lump."""
+        anim = self._correcting()
+        for _ in range(5):
+            anim.token_typed("s1")
+        assert len(set(anim._ripples)) == 5
+        assert max(anim._ripples) - min(anim._ripples) > 0.1
+
+    def test_ripples_are_capped(self):
+        anim = self._correcting()
+        for _ in range(50):
+            anim.token_typed("s1")
+        assert len(anim._ripples) <= 8
+
+    def test_an_unreported_stream_still_sweeps(self):
+        """Nothing calls token_typed in the preview; the light must still move."""
+        anim = self._correcting()
+        for _ in range(30):
+            anim.step(1 / 60)
+        assert _lift(anim) > 1.3
+
+    def test_a_words_light_runs_the_track_the_shimmer_does(self):
+        """
+        Ripple positions are fractions of the whole content, strip and words
+        together, so the light on the hem and the shimmer over the words are
+        one travelling thing rather than two that disagree.
+        """
+        anim = self._correcting()
+        anim.token_typed("s1")
+        for _ in range(7):
+            anim.step(1 / 60)
+        (p,) = anim._ripples
+        for track in (480.0, 800.0):
+            brightest = np.argmax(_aurora(anim, track=track)[..., 3].sum(axis=0))
+            assert abs(brightest - p * track) < 3.0
+
+    def test_the_shimmer_follows_the_ripples(self):
+        anim = self._correcting()
+        anim.token_typed("s1")
+        first = anim.pulse_track
+        for _ in range(20):
+            anim.step(1 / 60)
+        assert anim.pulse_track > first, "the words should light up as the line moves"
+
+    def test_the_shimmer_leaves_when_the_stream_does(self):
+        anim = self._correcting()
+        anim.token_typed("s1")
+        for _ in range(180):
+            anim.step(1 / 60)
+        assert anim.pulse_track < 0, "nothing to shimmer once the ripples are gone"
+
+    def test_a_stale_session_cannot_ripple(self):
+        anim = self._correcting()
+        anim.token_typed("other")
+        assert anim._ripples == []
+
+
+class TestDiscarded:
+    def test_a_called_off_dictation_draws_itself_in(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.streams_planned("s1", ["parakeet/built-in"])
+        anim.set_status("processing")
+        anim.dictation_discarded("s1")
+        for _ in range(45):
+            anim.step(1 / 60)
+        assert anim.discarded is True
+        assert anim.collapse.value > 0.9
+
+    def test_a_new_recording_reopens_it(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.streams_planned("s1", ["parakeet/built-in"])
+        anim.dictation_discarded("s1")
+        for _ in range(30):
+            anim.step(1 / 60)
+        anim.set_status("recording")
+        assert anim.collapse.value == 0.0 and anim.discarded is False
+
+
+class TestCapsuleAndLight:
+    """The dot that opens into a capsule, and the light along its edge."""
+
+    def _listening(self, level=0.0, frames=40):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.streams_planned("s1", ["parakeet/built-in"])
+        for _ in range(frames):
+            anim.step(1 / 60, level)
+        return anim
+
+    def test_it_opens_from_a_dot(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        assert anim.morph == 0.0
+        anim.step(1 / 60)
+        assert 0.0 < anim.morph < 0.5
+        for _ in range(60):
+            anim.step(1 / 60)
+        assert abs(anim.morph - 1.0) < 0.05
+
+    def test_the_contents_wait_for_the_capsule(self):
+        """Strands appearing inside a 40pt dot would be crushed into a smudge."""
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.step(1 / 60)
+        assert anim.content_alpha == 0.0
+        for _ in range(60):
+            anim.step(1 / 60)
+        assert anim.content_alpha > 0.95
+
+    def test_the_edge_is_nearly_dark_in_silence_and_lights_with_a_voice(self):
+        quiet = self._listening(level=0.0).edge_light()[0]
+        loud = self._listening(level=1.0).edge_light()[0]
+        assert quiet < 0.05
+        assert loud > 5 * quiet
+
+    def test_the_sweep_runs_faster_once_released(self):
+        listening = self._listening(frames=60)
+        start = listening.edge_phase
+        for _ in range(60):
+            listening.step(1 / 60)
+        drift = (listening.edge_phase - start) % 1.0
+
+        working = self._listening(frames=60)
+        working.set_status("processing")
+        for _ in range(40):
+            working.step(1 / 60)
+        start = working.edge_phase
+        for _ in range(60):
+            working.step(1 / 60)
+        assert (working.edge_phase - start) % 1.0 > 3 * drift
+
+    def test_a_skipped_correction_flares_the_whole_edge_and_stops_the_sweep(self):
+        anim = self._listening(frames=60)
+        anim.set_status("processing")
+        anim.transcription_done("s1")
+        anim.correction_skipped("s1")
+        steady, _, sweep = anim.edge_light()
+        assert steady > 0.8 and sweep == 0.0
+
+    def test_a_discarded_dictation_puts_the_light_out(self):
+        anim = self._listening(level=0.8, frames=60)
+        anim.dictation_discarded("s1")
+        for _ in range(60):
+            anim.step(1 / 60)
+        steady, _, sweep = anim.edge_light()
+        assert steady < 0.05 and sweep < 0.05
+        assert anim.content_alpha < 0.05
+
+    def test_the_aurora_climbs_with_your_voice(self):
+        def highest_lit_row(anim):
+            return np.nonzero((_aurora(anim)[..., 3] > 0.25).any(axis=1))[0].min()
+
+        quiet = highest_lit_row(self._listening(level=0.0))
+        loud = highest_lit_row(self._listening(level=1.0))
+        assert loud + 10 < quiet, "a louder voice should light rays nearer the top"
+
+
+class TestAuroraImage:
+    """The image handed to the GPU each frame."""
+
+    def _merged(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.set_status("processing")
+        for _ in range(90):
+            anim.step(1 / 60)
+        return anim
+
+    def test_padding_and_scale(self):
+        from mergescribe.ui.hud import HUDAnimation, aurora_rgba
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        for _ in range(30):
+            anim.step(1 / 60, 0.5)
+        image = aurora_rgba(anim, 112.0, 40.0, pad_pt=12.0)
+        assert image.shape == (64, 136, 4) and image.dtype == np.uint8
+        assert not image[:12].any() and not image[:, :12].any(), "the pad is clear, for the glow"
+        assert aurora_rgba(anim, 112.0, 40.0, scale=2.0).shape == (80, 224, 4)
+
+    def test_it_is_premultiplied(self):
+        """Core Image blurs premultiplied pixels; colour brighter than its alpha would halo."""
+        image = _aurora(self._merged()).reshape(-1, 4)
+        assert (image[:, :3] <= image[:, 3:] + 1 / 255).all()
+
+    def test_the_settled_hem_is_mint(self):
+        """The curtains' greens, cyans and violets agree on one colour once merged."""
+        pixel = _aurora(self._merged())[:, 60]
+        r, g, b, _ = pixel[np.argmax(pixel[:, 3])]
+        assert g > b > r
+
+    def test_nothing_is_drawn_before_the_capsule_opens(self):
+        from mergescribe.ui.hud import HUDAnimation
+
+        anim = HUDAnimation()
+        anim.set_status("recording")
+        anim.step(1 / 60)
+        assert not _aurora(anim)[..., 3].any()

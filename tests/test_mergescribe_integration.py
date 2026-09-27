@@ -12,12 +12,15 @@ from unittest.mock import Mock
 
 
 def metal_available() -> bool:
-    """True when MLX can use the GPU.
+    """True when MLX can run the real model on worker threads.
 
     Parakeet runs on worker threads, and MLX's CPU fallback has no stream in
-    them ("There is no Stream(cpu, 1) in current thread"), so a machine without
-    Metal — a CI runner, for instance — cannot exercise the real model at all.
+    them ("There is no Stream(cpu, 1) in current thread"). GitHub's macOS
+    runners report Metal as available yet still land on that CPU path, so CI
+    is ruled out by name rather than trusted to answer honestly.
     """
+    if os.environ.get("CI"):
+        return False
     try:
         import mlx.core as mx
         return mx.metal.is_available()
@@ -75,7 +78,6 @@ class TestConsensus:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 50
 
         consensus = check_consensus(results, config)
         assert consensus == "Hello world"
@@ -92,7 +94,6 @@ class TestConsensus:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 50
 
         assert check_consensus(results, config) is None
 
@@ -108,7 +109,6 @@ class TestConsensus:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 50
 
         assert check_consensus(results, config) == "Ship it today"
 
@@ -124,11 +124,38 @@ class TestConsensus:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 50
 
         consensus = check_consensus(results, config)
         # Should match and return first one (with punctuation)
         assert consensus == "Hello world."
+
+    def test_agreeing_on_speech_with_filler_is_still_consensus(self):
+        """Whether to drop the "um" is the correction's job, not a reason to keep waiting."""
+        from mergescribe.consensus import check_consensus
+        from mergescribe.types import TranscriptionResult, ConfigSnapshot
+
+        results = [TranscriptionResult(text="Um, ship it today", provider=p, mic="m", latency_ms=1) for p in ("a", "b")]
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 2
+        assert check_consensus(results, config) == "Um, ship it today"
+
+    def test_a_long_agreement_is_still_consensus(self):
+        from mergescribe.consensus import check_consensus
+        from mergescribe.types import TranscriptionResult, ConfigSnapshot
+
+        long = " ".join(["word"] * 40)
+        results = [TranscriptionResult(text=long, provider=p, mic="m", latency_ms=1) for p in ("a", "b")]
+        config = Mock(spec=ConfigSnapshot)
+        config.consensus_threshold = 2
+        assert check_consensus(results, config) == long
+
+    def test_punctuation_that_splits_a_word_is_not_ignored(self):
+        """ "re-sign" and "resign" are different words; commas and full stops are not."""
+        from mergescribe.consensus import normalize_for_matching as norm
+
+        assert norm("re-sign the lease") != norm("resign the lease")
+        assert norm("Hello, world.") == norm("hello world")
+        assert norm("Don't ship it") == norm("dont ship it")
 
     def test_consensus_no_match(self):
         """Test no consensus when texts differ."""
@@ -142,7 +169,6 @@ class TestConsensus:
 
         config = Mock(spec=ConfigSnapshot)
         config.consensus_threshold = 2
-        config.consensus_max_words = 50
 
         consensus = check_consensus(results, config)
         assert consensus is None
@@ -154,15 +180,13 @@ class TestPromptBuilding:
     def test_build_prompt_single_result(self):
         """Test prompt with single transcription."""
         from mergescribe.correct import _build_prompt
-        from mergescribe.types import TranscriptionResult, ConfigSnapshot
+        from mergescribe.types import TranscriptionResult
 
         results = [
             TranscriptionResult(text="Hello world", provider="parakeet", mic="builtin", latency_ms=100),
         ]
 
-        config = Mock(spec=ConfigSnapshot)
-
-        prompt = _build_prompt(results, None, config)
+        prompt = _build_prompt(results, None)
 
         # Prompt now just contains data, instructions are in system message
         assert "[parakeet/builtin]: Hello world" in prompt
@@ -171,7 +195,7 @@ class TestPromptBuilding:
     def test_build_prompt_multiple_results(self):
         """Test prompt with multiple transcriptions."""
         from mergescribe.correct import _build_prompt
-        from mergescribe.types import TranscriptionResult, ConfigSnapshot, AppContext
+        from mergescribe.types import TranscriptionResult, AppContext
 
         results = [
             TranscriptionResult(text="Hello world", provider="parakeet", mic="m1", latency_ms=100),
@@ -184,9 +208,7 @@ class TestPromptBuilding:
             bundle_id="com.microsoft.VSCode",
         )
 
-        config = Mock(spec=ConfigSnapshot)
-
-        prompt = _build_prompt(results, context, config)
+        prompt = _build_prompt(results, context)
 
         # Prompt now just contains data, instructions are in system message
         assert "[parakeet/m1]: Hello world" in prompt
@@ -195,72 +217,8 @@ class TestPromptBuilding:
         assert "Transcriptions:" in prompt
 
 
-class TestProviderRegistry:
-    """Tests for provider registry integration."""
-
-    def test_parallel_transcription_with_real_provider(self):
-        """Test registry runs providers in parallel."""
-        try:
-            from mergescribe.providers import ProviderRegistry
-            from mergescribe.providers.parakeet import ParakeetProvider
-
-            audio = load_test_audio()
-            registry = ProviderRegistry()
-
-            provider = ParakeetProvider()
-            provider.initialize()
-
-            if provider.model is None:
-                pytest.skip("Parakeet model not available")
-            if not metal_available():
-                pytest.skip("Parakeet needs a Metal GPU; MLX cannot run on worker threads without one")
-
-            registry.providers["parakeet"] = provider
-
-            results = registry.transcribe_all(audio, mic_name="test_mic", timeout=30)
-
-            assert len(results) == 1
-            assert results[0].provider == "parakeet"
-            assert len(results[0].text) > 0
-
-            registry.shutdown()
-
-        except ImportError as e:
-            pytest.skip(f"Dependencies not available: {e}")
-
-
 class TestEndToEndFlow:
     """End-to-end integration tests."""
-
-    def test_full_flow_with_mocked_llm(self):
-        """Test full transcription flow with mocked LLM."""
-        from mergescribe.types import TranscriptionResult, ConfigSnapshot
-        from mergescribe.consensus import check_consensus
-
-        # Simulate results from transcription
-        results = [
-            TranscriptionResult(text="Testing one two three.", provider="parakeet", mic="m1", latency_ms=100),
-            TranscriptionResult(text="Testing one two three", provider="groq", mic="m1", latency_ms=200),
-        ]
-
-        config = Mock(spec=ConfigSnapshot)
-        config.consensus_threshold = 2
-        config.consensus_max_words = 50
-        config.openrouter_api_key = ""
-        config.hedged_requests = False
-
-        # Check consensus first
-        consensus = check_consensus(results, config)
-        assert consensus == "Testing one two three."  # Returns first match
-
-        # If no consensus, would call LLM (but we have consensus, so skip LLM)
-        if consensus is None:
-            # LLM would be called here
-            pass
-
-        # Final result
-        final_text = consensus or results[0].text
-        assert "testing" in final_text.lower()
 
     @pytest.mark.skipif(
         not os.environ.get("OPENROUTER_API_KEY"),

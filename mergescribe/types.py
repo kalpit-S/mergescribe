@@ -15,6 +15,7 @@ class TranscriptionResult:
     mic: str
     latency_ms: int
     confidence: Optional[float] = None
+    chunk: int = 0      # which part of the dictation, from 1; 0 when there is only the one
 
 
 @dataclass
@@ -46,7 +47,6 @@ class ConfigSnapshot:
 
     # Processing
     consensus_threshold: int
-    consensus_max_words: int
 
     # API Keys
     openrouter_api_key: str
@@ -55,7 +55,7 @@ class ConfigSnapshot:
     openrouter_stt_models: List[str] = field(default_factory=list)
 
     # Which model the OpenRouter correction call uses
-    openrouter_correction_model: str = "google/gemini-3.1-flash-lite"
+    openrouter_correction_model: str = "openai/gpt-6-luna"
     openrouter_correction_provider_order: List[str] = field(default_factory=list)
     openrouter_correction_allow_fallbacks: bool = True
     openrouter_correction_reasoning_effort: str = ""
@@ -67,15 +67,14 @@ class ConfigSnapshot:
     system_prompt: str = ""  # Custom system prompt for LLM correction
     editing_prompt: str = ""  # Custom prompt for text editing mode
 
+    # Skipping correction when a classifier says the transcript needs none
+    judge_enabled: bool = False
+    judge_model: str = "~typesafe/jev-latest"
+    judge_timeout_ms: int = 900
+
     # Training data collection (local only)
     training_enabled: bool = False
     training_data_dir: str = ""
-
-    # Voice-driven output routing (AX field inventory + TARGET prefix).
-    # Experimental, opt-in — see DEFAULT_CONFIG.
-    field_routing_enabled: bool = False
-    routing_allowed_apps: List[str] = field(default_factory=list)
-    routing_instructions: str = ""
 
     # Post-output edit detection (implicit correction signal)
     edit_feedback_enabled: bool = True
@@ -139,4 +138,4 @@ class TrainingMetadata:
 
 # Type aliases
 AudioChunk = Dict[str, np.ndarray]  # {mic_name: audio_array}
-ChunkResult = tuple[List[TranscriptionResult], Optional[str]]  # (results, consensus_if_found)
+ChunkResult = tuple[int, List[TranscriptionResult], Optional[str]]  # (part, results, consensus_if_found)

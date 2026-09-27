@@ -47,6 +47,8 @@ MARGIN = 36
 
 _NAMES = {
     "fish-audio-transcribe-1": "Fish Audio",
+    "fish-audio-transcribe-1-pro": "Fish Audio Pro",
+    "assemblyai-universal-3-5-pro": "Universal 3.5 Pro",
     "microsoft-mai-transcribe-2": "MAI-Transcribe 2",
     "microsoft-mai-transcribe-1-5": "MAI-Transcribe 1.5",
     "openai-gpt-4o-transcribe": "GPT-4o Transcribe",

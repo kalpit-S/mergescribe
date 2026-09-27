@@ -1,7 +1,7 @@
 [project]
 name = "mergescribe"
 version = "2.0.0"
-description = "Local-first macOS voice-to-text with parallel STT providers, LLM correction, and voice-driven output routing"
+description = "Local-first macOS voice-to-text with parallel STT providers and LLM correction"
 authors = [
     {name = "Kalpit Sutariya"}
 ]

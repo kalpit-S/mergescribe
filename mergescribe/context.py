@@ -7,7 +7,8 @@ context-aware transcription correction.
 
 import subprocess
 import time
-from typing import Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Optional, Tuple
 
 from .types import AppContext
 
@@ -180,6 +181,91 @@ def detect_selected_text() -> Optional[str]:
         # Always restore original clipboard
         if original is not None:
             _set_clipboard(original)
+
+
+# -- where a dictation started --------------------------------------------------
+#
+# Dictating in toggle mode while reading something else is normal: the words
+# belong in the field the dictation started in, not wherever the speaker is
+# looking when it ends. Windows are managed by the window server, not by the
+# app's accessibility tree, so bringing one back works for Electron and
+# browsers as well as native apps - and the app itself puts the cursor back in
+# the field it last had.
+
+_RETURN_TIMEOUT = 0.8   # seconds to wait for the window to come back
+_RETURN_SETTLE = 0.08   # then this long for it to restore its focused field
+
+
+@dataclass
+class Origin:
+    """The app and window a dictation started in."""
+    pid: int
+    app: Any                # AXUIElement for the application
+    window: Optional[Any]   # AXUIElement for its focused window, if it had one
+
+
+def _ax(element, attribute):
+    from ApplicationServices import AXUIElementCopyAttributeValue
+    try:
+        err, value = AXUIElementCopyAttributeValue(element, attribute, None)
+        return value if err == 0 else None
+    except Exception:
+        return None
+
+
+def capture_origin() -> Optional[Origin]:
+    """The frontmost app and its focused window, right now."""
+    try:
+        from AppKit import NSWorkspace
+        from ApplicationServices import AXUIElementCreateApplication
+        app = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if app is None:
+            return None
+        pid = int(app.processIdentifier())
+        element = AXUIElementCreateApplication(pid)
+        return Origin(pid=pid, app=element, window=_ax(element, "AXFocusedWindow"))
+    except Exception:
+        return None
+
+
+def at_origin(origin: Origin) -> bool:
+    """True when that app is frontmost with that window focused."""
+    try:
+        from AppKit import NSWorkspace
+        app = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if app is None or int(app.processIdentifier()) != origin.pid:
+            return False
+        # CFEqual: two references to the same window compare equal
+        return origin.window is None or _ax(origin.app, "AXFocusedWindow") == origin.window
+    except Exception:
+        return False
+
+
+def return_to(origin: Origin) -> bool:
+    """
+    Bring the origin app and window back to the front. True once they are.
+
+    Through accessibility rather than NSRunningApplication.activate, which a
+    background app may not be allowed to use to take focus.
+    """
+    if at_origin(origin):
+        return True
+    try:
+        from ApplicationServices import AXUIElementPerformAction, AXUIElementSetAttributeValue
+        from CoreFoundation import kCFBooleanTrue
+        AXUIElementSetAttributeValue(origin.app, "AXFrontmost", kCFBooleanTrue)
+        if origin.window is not None:
+            AXUIElementSetAttributeValue(origin.window, "AXMain", kCFBooleanTrue)
+            AXUIElementPerformAction(origin.window, "AXRaise")
+    except Exception:
+        return False
+    deadline = time.monotonic() + _RETURN_TIMEOUT
+    while time.monotonic() < deadline:
+        if at_origin(origin):
+            time.sleep(_RETURN_SETTLE)
+            return True
+        time.sleep(0.02)
+    return False
 
 
 def _get_clipboard() -> str:

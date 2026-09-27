@@ -4,6 +4,7 @@ Tests for mergescribe AudioEngine.
 Includes both unit tests (mocked) and hardware tests (real mics).
 """
 
+import threading
 import time
 import pytest
 import numpy as np
@@ -28,7 +29,6 @@ class TestAudioEngineUnit:
 
         # Check computed values
         assert engine._preroll_samples == 8000  # 0.5 * 16000
-        assert engine._silence_samples == 32000  # 2.0 * 16000
 
     def test_silence_detection(self):
         """Test silence detection with various audio levels."""
@@ -140,8 +140,8 @@ class TestAudioEngineUnit:
 
         # Setup preroll buffers
         engine.preroll_buffers["mic1"] = deque([
-            np.array([1, 2], dtype=np.float32),
-            np.array([3, 4], dtype=np.float32),
+            (time.monotonic(), np.array([1, 2], dtype=np.float32)),
+            (time.monotonic(), np.array([3, 4], dtype=np.float32)),
         ])
         engine.current_chunk["mic1"] = []
 
@@ -448,16 +448,11 @@ class TestAudioEngineHardware:
         from mergescribe.audio import AudioEngine
 
         engine = AudioEngine(real_config)
-
         try:
             active_mics = engine.initialize()
-
-            # Should find at least the default mic
-            assert len(active_mics) >= 0
-
-            if active_mics:
-                assert "MacBook Pro Microphone" in active_mics or len(active_mics) > 0
-
+            if not active_mics:
+                pytest.skip("no microphone available")
+            assert set(active_mics) <= set(engine.streams), "a mic reported active has no stream"
         finally:
             engine.shutdown()
 
@@ -581,3 +576,139 @@ class TestAudioEngineMultiMic:
         assert "mic1" in chunk
         assert "mic2" in chunk
         assert "mic3" in chunk
+
+
+class TestSeamAlignedCutting:
+    """A forced cut should land in a gap between words, not mid-word."""
+
+    def _engine(self, chunk_seconds, silent_for):
+        from collections import deque
+        import time
+
+        from mergescribe.audio import AudioEngine
+        from mergescribe.config import Config
+
+        config = Mock(spec=Config)
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 1.2      # a real pause is 1.2s of quiet
+        config.sample_rate = 16000
+
+        engine = AudioEngine(config)
+        engine.preroll_buffers["mic1"] = deque(maxlen=10)
+        engine.current_chunk["mic1"] = [np.zeros(int(16000 * chunk_seconds), dtype=np.float32)]
+        engine.is_recording = True
+        engine._primary_mic = "mic1"
+        engine._chunk_has_speech = True
+        engine.last_speech_time = time.time() - silent_for
+        engine._get_bool_config = lambda *a, **k: True
+        engine._is_silence = lambda *a, **k: silent_for > 0.05
+        emitted = []
+        engine.on_chunk_ready = lambda c: emitted.append(c)
+        return engine, emitted
+
+    def _tick(self, engine):
+        engine._audio_callback("mic1", np.zeros(1024, dtype=np.float32).reshape(-1, 1),
+                               1024, None, None)
+
+    def test_mid_word_at_the_cap_keeps_recording(self):
+        """Still talking at 30s: cutting here would split a word in half."""
+        engine, emitted = self._engine(chunk_seconds=31.0, silent_for=0.0)
+        self._tick(engine)
+        assert emitted == []
+
+    def test_the_next_breath_past_the_cap_is_the_cut(self):
+        engine, emitted = self._engine(chunk_seconds=31.0, silent_for=0.2)
+        self._tick(engine)
+        assert len(emitted) == 1
+
+    def test_a_breath_before_the_cap_is_not_a_cut(self):
+        """Ordinary gaps between words must not chop every sentence up."""
+        engine, emitted = self._engine(chunk_seconds=12.0, silent_for=0.2)
+        self._tick(engine)
+        assert emitted == []
+
+    def test_a_speaker_who_never_pauses_is_cut_anyway(self):
+        engine, emitted = self._engine(chunk_seconds=46.0, silent_for=0.0)
+        self._tick(engine)
+        assert len(emitted) == 1
+
+    def test_a_real_pause_still_ends_a_chunk_early(self):
+        engine, emitted = self._engine(chunk_seconds=6.0, silent_for=1.5)
+        self._tick(engine)
+        assert len(emitted) == 1
+
+
+class TestBetweenDictations:
+    """What the engine learns, and forgets, while the key is up."""
+
+    def _engine(self, mic="mic1"):
+        from collections import deque
+
+        from mergescribe.audio import FALLBACK_NOISE_FLOOR_DB, AudioEngine
+        from mergescribe.config import Config
+
+        config = Mock(spec=Config)
+        config.preroll_seconds = 0.5
+        config.silence_threshold = 2.0
+        config.sample_rate = 16000
+        engine = AudioEngine(config)
+        engine.preroll_buffers[mic] = deque(maxlen=8)
+        engine.current_chunk[mic] = []
+        engine._noise_floor_samples[mic] = deque(maxlen=500)
+        engine._noise_floor_cache[mic] = FALLBACK_NOISE_FLOOR_DB
+        engine._speech_active[mic] = False
+        return engine
+
+    def _feed(self, engine, level, blocks, mic="mic1"):
+        rng = np.random.default_rng(0)
+        for _ in range(blocks):
+            block = (rng.standard_normal((1024, 1)) * level).astype(np.float32)
+            engine._audio_callback(mic, block, 1024, None, None)
+
+    def test_the_room_is_measured_before_the_first_dictation(self):
+        """Otherwise the floor is a fixed guess, and quiet speech under it is discarded as silence."""
+        from mergescribe.audio import FALLBACK_NOISE_FLOOR_DB
+
+        engine = self._engine()
+        self._feed(engine, 0.0005, 60)          # a quiet room, key up (about -66 dBFS)
+        assert engine._noise_floor_cache["mic1"] < FALLBACK_NOISE_FLOOR_DB - 10
+
+    def test_pre_roll_is_only_the_moment_before_the_press(self):
+        """A mic that went quiet (AirPods idling) must not replay what it heard minutes ago."""
+        import mergescribe.audio as audio_module
+
+        engine = self._engine()
+        clock = [1000.0]
+        with patch.object(audio_module.time, "monotonic", lambda: clock[0]):
+            self._feed(engine, 0.1, 4)               # heard, then the mic stopped delivering
+            clock[0] += 300.0                        # five minutes later, the key goes down
+            engine.start_recording()
+        assert engine.current_chunk["mic1"] == []
+
+    def test_releasing_waits_for_a_chunk_being_handed_over(self):
+        """A chunk in flight to the session when the key comes up must not be lost."""
+        engine = self._engine()
+        engine.is_recording = True
+        handed = threading.Event()
+        release = threading.Event()
+
+        def slow_handover(chunk):
+            handed.set()
+            release.wait(1.0)
+        engine.on_chunk_ready = slow_handover
+        with patch.object(engine, "_flush_current_chunk", return_value={"mic1": np.ones(10, np.float32)}):
+            def deliver():
+                with engine._lock:
+                    engine._deliver_chunk()
+            deliverer = threading.Thread(target=deliver)
+            deliverer.start()
+            handed.wait(1.0)
+            stopped = []
+            stopper = threading.Thread(target=lambda: stopped.append(engine.stop_recording()))
+            stopper.start()
+            time.sleep(0.1)
+            assert not stopped, "stop_recording returned while the chunk was still being handed over"
+            release.set()
+            stopper.join(1.0)
+            deliverer.join(1.0)
+        assert stopped

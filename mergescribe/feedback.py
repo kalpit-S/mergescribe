@@ -23,7 +23,6 @@ Separating them needs semantics, so it happens later in a batch LLM pass
 
 import difflib
 import json
-import re
 import threading
 import time
 from pathlib import Path
@@ -34,6 +33,7 @@ try:
         AXUIElementCreateApplication,
         AXUIElementCreateSystemWide,
         AXUIElementCopyAttributeValue,
+        AXUIElementGetPid,
         AXUIElementSetAttributeValue,
     )
     from CoreFoundation import kCFBooleanTrue
@@ -52,6 +52,13 @@ _SETTLE_CONFIRM_SECONDS = 2.5    # a changed field must hold still before it cou
 # against that placeholder produced 83% of the first corpus as garbage.
 _MIN_EDIT_SIMILARITY = 0.5
 _MIN_EDIT_LENGTH_RATIO = 0.5
+# A field can hold a whole document or chat thread. A character diff is
+# quadratic pure Python: two 40k-character snapshots took tens of seconds per
+# check, holding the GIL the whole time, which starved the main thread and
+# dropped the HUD to one frame a second. Edits are local, so the unchanged
+# ends are stripped first and only what is left is diffed - up to this much.
+_MAX_DIFF_CHARS = 6000
+_MAX_FUZZY_FIELD_CHARS = 20000
 
 CORRECTIONS_PATH = Path.home() / ".mergescribe" / "corrections.jsonl"
 
@@ -98,6 +105,37 @@ def wake_frontmost_app() -> None:
         pass
 
 
+def _pid(element) -> Optional[int]:
+    try:
+        err, pid = AXUIElementGetPid(element, None)
+        return pid if err == 0 else None
+    except Exception:
+        return None
+
+
+def read_field(target, pid: Optional[int]):
+    """
+    Read the watched field. Returns (element, value); value is None if it's gone.
+
+    Some apps destroy the composer and build a new one when a message is sent:
+    ChatGPT does, Claude clears its composer in place. The saved element then
+    goes stale and every read fails - which was being filed as "unreadable",
+    165 times in three days, when it was the same event Claude reports as
+    "cleared". When that happens, whatever now has focus in the *same* app is
+    the field's successor: after a send it is the fresh empty composer, and if
+    the app merely re-rendered mid-edit it holds the edit, so either way it
+    classifies correctly. Focus in another app means the field is truly gone.
+    """
+    value = _ax_get(target, "AXValue")
+    if isinstance(value, str) or pid is None:
+        return target, value if isinstance(value, str) else None
+    successor = focused_element()
+    if successor is None or _pid(successor) != pid:
+        return target, None
+    value = _ax_get(successor, "AXValue")
+    return (successor, value) if isinstance(value, str) else (target, None)
+
+
 def focused_element():
     """The UI element that currently has keyboard focus, or None."""
     if not _AX_AVAILABLE:
@@ -129,7 +167,11 @@ def _anchor(baseline: str, typed: str) -> Optional[Tuple[int, int]]:
         if start >= 0:
             return (max(0, start + len(tail) - len(typed)), start + len(tail))
 
-    # Fuzzy: longest common block, accepted only if it covers most of our text
+    # Fuzzy: longest common block, accepted only if it covers most of our text.
+    # Pure Python and linear in the field: past this size it would hold the
+    # GIL long enough to stutter the HUD, for a match that rarely lands anyway.
+    if len(baseline) > _MAX_FUZZY_FIELD_CHARS:
+        return None
     match = difflib.SequenceMatcher(None, baseline, typed, autojunk=False)\
         .find_longest_match(0, len(baseline), 0, len(typed))
     if match.size >= max(20, int(len(typed) * 0.5)):
@@ -154,15 +196,57 @@ def _map_index(opcodes, index: int, prefer_end: bool = False) -> int:
     return opcodes[-1][4] if opcodes else 0
 
 
+def _common_ends(a: str, b: str) -> Tuple[int, int]:
+    """Lengths of the common prefix and suffix, bisecting on slice equality (C speed)."""
+    lo, hi = 0, min(len(a), len(b))
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if a[:mid] == b[:mid]:
+            lo = mid
+        else:
+            hi = mid - 1
+    prefix = lo
+    lo, hi = 0, min(len(a), len(b)) - prefix
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if a[len(a) - mid:] == b[len(b) - mid:]:
+            lo = mid
+        else:
+            hi = mid - 1
+    return prefix, lo
+
+
+def _opcodes(a: str, b: str) -> Optional[list]:
+    """
+    SequenceMatcher opcodes turning a into b, diffing only what lies between
+    the unchanged ends. None if even that is too large to diff.
+    """
+    prefix, suffix = _common_ends(a, b)
+    a_mid, b_mid = a[prefix:len(a) - suffix], b[prefix:len(b) - suffix]
+    if len(a_mid) + len(b_mid) > _MAX_DIFF_CHARS:
+        return None
+    opcodes = [("equal", 0, prefix, 0, prefix)] if prefix else []
+    if a_mid or b_mid:
+        for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(
+                None, a_mid, b_mid, autojunk=False).get_opcodes():
+            opcodes.append((tag, i1 + prefix, i2 + prefix, j1 + prefix, j2 + prefix))
+    if suffix:
+        opcodes.append(("equal", len(a) - suffix, len(a), len(b) - suffix, len(b)))
+    return opcodes
+
+
 def diff_span(baseline: str, current: str, span: Tuple[int, int]):
     """
     Compare baseline vs current, restricted to the span we typed.
 
     Returns (changed, corrected_text). `changed` is True only when an edit
     lands inside the span — text added elsewhere in the field is ignored.
+    None when the field changed too much, in too many places, to diff.
     """
     start, end = span
-    opcodes = difflib.SequenceMatcher(None, baseline, current, autojunk=False).get_opcodes()
+    opcodes = _opcodes(baseline, current)
+    if opcodes is None:
+        return None
 
     changed = any(
         tag != "equal" and i1 < end and i2 > start
@@ -182,14 +266,20 @@ def classify(baseline: str, current: Optional[str], span: Tuple[int, int]):
     cleared     - the field emptied (message sent, draft discarded)
     replaced    - the text was swapped wholesale (a send leaves a placeholder)
     reformatted - only case/punctuation changed, i.e. the app normalised it
-    unreadable  - the field stopped exposing its value
+    gone        - the field no longer exists and nothing in its app replaced it
+    unmeasured  - our text is no longer there verbatim, and the field changed
+                  too much elsewhere to diff it cheaply
     """
     if not isinstance(current, str):
-        return ("unreadable", "")
+        return ("gone", "")
     if not current.strip():
         return ("cleared", "")
 
-    changed, corrected = diff_span(baseline, current, span)
+    diff = diff_span(baseline, current, span)
+    if diff is None:
+        intact = baseline[span[0]:span[1]] in current
+        return ("unchanged", "") if intact else ("unmeasured", "")
+    changed, corrected = diff
     if not changed:
         return ("unchanged", "")
 
@@ -223,10 +313,8 @@ def is_app_transform(typed: str, corrected: str) -> bool:
     The test is whether any letters or digits actually changed. If only case,
     punctuation, and separators differ, nothing was corrected.
     """
-    def letters(s: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", s.lower())
-
-    return letters(typed) == letters(corrected)
+    from .vocabulary import _letters
+    return _letters(typed) == _letters(corrected)
 
 
 def record_correction(entry: dict, path: Path = CORRECTIONS_PATH) -> None:
@@ -270,6 +358,8 @@ def watch_for_edits(
     if target is None:
         return False
 
+    pid = _pid(target)
+
     def work() -> None:
         nonlocal target
         time.sleep(_BASELINE_SETTLE_SECONDS)
@@ -304,7 +394,8 @@ def watch_for_edits(
         for delay in _CHECK_DELAYS_SECONDS:
             time.sleep(max(0.0, delay - elapsed))
             elapsed = delay
-            outcome, corrected = classify(baseline, _ax_get(target, "AXValue"), span)
+            target, current = read_field(target, pid)
+            outcome, corrected = classify(baseline, current, span)
             if outcome == "unchanged":
                 continue
 
@@ -315,7 +406,8 @@ def watch_for_edits(
             # snapshots of text shorter than what had been typed.
             time.sleep(_SETTLE_CONFIRM_SECONDS)
             elapsed += _SETTLE_CONFIRM_SECONDS
-            outcome2, corrected2 = classify(baseline, _ax_get(target, "AXValue"), span)
+            target, current = read_field(target, pid)
+            outcome2, corrected2 = classify(baseline, current, span)
             if outcome2 != outcome or corrected2 != corrected:
                 continue
 

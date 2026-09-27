@@ -89,3 +89,45 @@ class TestNothingMarker:
         from mergescribe.output import NOTHING_MARKER
 
         assert f"exactly {NOTHING_MARKER}" in DEFAULT_SYSTEM_CONTEXT
+
+
+def test_emoji_are_typed_whole():
+    """The key-event API counts UTF-16 units; an emoji is two of them."""
+    from unittest.mock import patch
+
+    import mergescribe.output as output
+
+    if not output._QUARTZ_AVAILABLE:
+        import pytest
+        pytest.skip("Quartz not available")
+    lengths = []
+    with patch.object(output.Quartz, "CGEventKeyboardSetUnicodeString",
+                      side_effect=lambda event, n, text: lengths.append((n, text))), \
+         patch.object(output.Quartz, "CGEventPost"):          # never type into the real desktop
+        output._type_text_quartz("ok 🚀")
+    for n, text in lengths:
+        assert n == len(text.encode("utf-16-le")) // 2
+
+
+def test_typing_that_fails_partway_hands_over_only_the_rest():
+    """Retyping the whole text another way would repeat what already went in."""
+    from unittest.mock import patch
+
+    import mergescribe.output as output
+
+    if not output._QUARTZ_AVAILABLE:
+        import pytest
+        pytest.skip("Quartz not available")
+    text = "a" * output._TYPE_CHUNK_CHARS + "the rest"
+    posted = []
+
+    def post(tap, event):
+        posted.append(event)
+        if len(posted) > 2:                       # the first chunk's down and up go in, then it breaks
+            raise RuntimeError("event tap refused")
+    with patch.object(output.Quartz, "CGEventPost", side_effect=post), \
+         patch.object(output, "copy_to_clipboard") as clip, \
+         patch.object(output, "notify"), \
+         patch.object(output.time, "sleep"):
+        output.type_text(text)
+    clip.assert_called_once_with("the rest")

@@ -15,7 +15,7 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from queue import Queue, Empty, Full
-from typing import Dict, Optional
+from typing import Dict
 from uuid import UUID
 
 import numpy as np
@@ -209,12 +209,3 @@ class TrainingDataWriter:
 
 
 # Global instance (lazy-loaded)
-_training_writer: Optional[TrainingDataWriter] = None
-
-
-def get_training_writer(training_dir: Path, sample_rate: int = 16000) -> TrainingDataWriter:
-    """Get or create the global training data writer."""
-    global _training_writer
-    if _training_writer is None:
-        _training_writer = TrainingDataWriter(training_dir, sample_rate)
-    return _training_writer

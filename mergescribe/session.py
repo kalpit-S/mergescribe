@@ -22,7 +22,8 @@ from .types import (
 )
 from .providers import Provider, ProviderRegistry
 from .consensus import check_consensus
-from .context import get_app_context, detect_selected_text
+from .context import Origin, at_origin, capture_origin, detect_selected_text, get_app_context, return_to
+from .logging_tag import set_tag
 from .output import (type_text, copy_to_clipboard, notify, play_busy_sound,
                      DictationFilter, NothingMarker, is_nothing)
 
@@ -65,6 +66,15 @@ class SessionObserver(Protocol):
     def transcription_done(self, session: str) -> None:
         """Every chunk is in; correction starts now."""
 
+    def correction_skipped(self, session: str) -> None:
+        """The transcript needed no correcting and was typed as it stood."""
+
+    def dictation_discarded(self, session: str) -> None:
+        """The speaker called it off; nothing will be typed."""
+
+    def token_typed(self, session: str) -> None:
+        """A word just reached the screen."""
+
     def partial_text(self, session: str, text: str) -> None:
         """The raw transcript so far, while recording."""
 
@@ -89,16 +99,20 @@ class Session:
     # Runtime state
     chunk_results: List[ChunkResult] = field(default_factory=list)
     pending_futures: List[Future] = field(default_factory=list)
-    is_active: bool = False
     # True only while audio is being captured. Finalization (LLM + typing) runs
-    # long after the mic is free, and typing is already serialised by the
-    # manager's shared output_lock, so a new recording may safely begin while
-    # the previous session is still finalising. Gating new sessions on
-    # is_active instead made the app deaf for the whole ~2s tail.
+    # long after the mic is free, and output is kept in order by the manager's
+    # OutputOrder, so a new recording may safely begin while the previous
+    # session is still finalising. Gating new sessions on the whole session
+    # instead made the app deaf for its ~2s tail.
     is_capturing: bool = False
     start_time: float = 0.0
     context: Optional[AppContext] = None
     selected_text: Optional[str] = None  # For text editing mode
+    origin: Optional[Origin] = None      # the app and window the dictation started in
+    output_order: Optional["OutputOrder"] = None
+    _ticket: Optional[int] = None
+    _turn_taken: bool = False
+    _partial_output: bool = False        # only part of the text reached the field
     observer: Optional[SessionObserver] = None
     _executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(max_workers=12))
     _chunk_lock: threading.Lock = field(default_factory=threading.Lock)
@@ -112,13 +126,15 @@ class Session:
     # Data collection for metrics and training
     all_audio: Dict[str, List[np.ndarray]] = field(default_factory=dict)
     all_transcription_results: List[TranscriptionResult] = field(default_factory=list)
-    field_targets: list = field(default_factory=list)  # On-screen text fields for routing
-    _field_snapshot_thread: Optional[threading.Thread] = None
     _context_thread: Optional[threading.Thread] = None
-    _route_destination: str = ""  # Where output was routed (for history tagging)
     llm_result: Optional[LLMCorrectionResult] = None
     output_method: str = ""  # "typed" | "clipboard" | "streamed"
     finalize_start_time: float = 0.0  # When key was released (for processing WPM)
+
+    @property
+    def tag(self) -> str:
+        """Short handle for the log, so overlapping sessions can be told apart."""
+        return str(self.id)[:4]
 
     def start(self, mics: Sequence[str] = ()) -> None:
         """Mark the session live and capture context off the critical path.
@@ -131,21 +147,13 @@ class Session:
         before recording starts pushed the first word past the 1s preroll
         buffer, so it now overlaps the recording instead.
         """
-        self.is_active = True
         self.is_capturing = True
         self.start_time = time.time()
+        set_tag(self.tag)
         self._notify("streams_planned", [f"{provider.name}/{mic}"
                                          for mic, provider in self.stream_plan(list(mics))])
         self._context_thread = threading.Thread(target=self._capture_context, daemon=True)
         self._context_thread.start()
-
-        # Snapshot on-screen text fields in the background while recording;
-        # the AX tree walk cost hides inside the recording/STT latency window.
-        if getattr(self.config_snapshot, "field_routing_enabled", False):
-            self._field_snapshot_thread = threading.Thread(
-                target=self._snapshot_field_targets, daemon=True
-            )
-            self._field_snapshot_thread.start()
 
         # Log session start
         if self.metrics:
@@ -161,6 +169,7 @@ class Session:
         """Active app + any selected text. Runs while recording."""
         try:
             self.context = get_app_context()
+            self.origin = capture_origin()
             self.selected_text = detect_selected_text()
             if getattr(self.config_snapshot, "edit_feedback_enabled", False):
                 # Wake the destination app's accessibility tree while the user
@@ -172,72 +181,36 @@ class Session:
         except Exception as e:
             print(f"[Session] Context capture failed: {e}")
 
+    def _my_turn(self) -> None:
+        """Wait for earlier dictations to finish typing, once, before this one types."""
+        if self._turn_taken or self.output_order is None or self._ticket is None:
+            return
+        self._turn_taken = True
+        self.output_order.wait(self._ticket)
+
+    def _in_place(self) -> bool:
+        """
+        True when the words can go where the dictation started - bringing that
+        window back first if the speaker moved on to read something while
+        talking. False only when it can't be brought back (it was closed).
+        """
+        if self.origin is None:
+            current = get_app_context()
+            return bool(self.context and current and current.bundle_id == self.context.bundle_id)
+        if at_origin(self.origin):
+            return True
+        if return_to(self.origin):
+            name = self.context.app_name if self.context else "the starting window"
+            print(f"[Output] Back to {name} to type")
+            return True
+        print("[Output] Couldn't bring back the window the dictation started in")
+        return False
+
     def _await_context(self, timeout: float = 2.0) -> None:
         """Context is needed at finalize; by then it is almost always ready."""
         thread = self._context_thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=timeout)
-
-    def _snapshot_field_targets(self) -> None:
-        """Enumerate on-screen text fields for output routing (background)."""
-        try:
-            from .fields import snapshot_fields
-            allowed = getattr(self.config_snapshot, "routing_allowed_apps", [])
-            self.field_targets = snapshot_fields(allowed_apps=allowed)
-            if self.field_targets:
-                print(f"[Routing] {len(self.field_targets)} targets:")
-                for t in self.field_targets:
-                    where = t.window_title or t.label or t.role
-                    peek = t.value_preview.strip().replace("\n", " ")[:60]
-                    peek = f' | "{peek}..."' if peek else ""
-                    mark = " <- FOCUSED" if t.is_focused else ("" if t.window_index == 0 else " (bg)")
-                    print(f"  [{t.id}] {t.app_name}: {where}{peek}{mark}")
-            else:
-                print("[Routing] No fields found (AX not trusted or empty tree) - routing off this session")
-        except Exception as e:
-            print(f"[Routing] Field snapshot failed: {e}")
-
-    def _await_field_targets(self, timeout: float = 1.0) -> None:
-        """Give the snapshot thread a moment to finish before building the prompt."""
-        thread = self._field_snapshot_thread
-        if thread is not None and thread.is_alive():
-            thread.join(timeout=timeout)
-            if thread.is_alive():
-                print("[Routing] Field snapshot still running - proceeding without it")
-
-    def _handle_route_target(self, target_id: Optional[str]) -> None:
-        """Focus the routed field before streamed text starts typing."""
-        from .fields import TARGET_FOCUSED, focus_field
-
-        outcome = "focused"
-        target = None
-        if target_id and target_id != TARGET_FOCUSED:
-            target = next((t for t in self.field_targets if t.id == target_id), None)
-            if target is None:
-                print(f"[Routing] Unknown target {target_id}, using focused field")
-                outcome = "unknown_target"
-            elif focus_field(target):
-                print(f"[Routing] -> {target.app_name}: {target.label or target.role}")
-                notify(f"→ {target.app_name}: {target.label or target.window_title}")
-                outcome = "retargeted"
-                self._route_destination = f"{target.app_name}: {target.window_title or target.label}"
-            else:
-                print(f"[Routing] Could not focus {target_id}, using focused field")
-                outcome = "focus_failed"
-
-        if self.metrics:
-            self.metrics.log(
-                "routing",
-                session_id=str(self.id),
-                target=target_id,
-                outcome=outcome,
-                target_app=target.app_name if target else None,
-                n_fields=len(self.field_targets),
-                inventory=[
-                    f"{t.id}:{t.app_name}:{(t.window_title or t.label)[:60]}"
-                    for t in self.field_targets
-                ],
-            )
 
     def _start_edit_watch(self, text: str) -> None:
         """Watch the destination field for user corrections to our output."""
@@ -245,7 +218,8 @@ class Session:
             return
         from .feedback import record_correction, watch_for_edits
 
-        raw = " ".join(r.text for r in self.all_transcription_results if r.text.strip())
+        raw = " ".join(r.text for r in sorted(self.all_transcription_results, key=lambda r: r.chunk)
+                       if r.text.strip())
         app = self.context.app_name if self.context else ""
 
         def on_result(outcome: str, after_s: float, original: str, corrected: str) -> None:
@@ -264,6 +238,13 @@ class Session:
                     "raw_transcript": raw[:1000],
                     "typed": original[:1000],
                     "corrected": corrected[:1000],
+                    # What produced the text the speaker fixed: a correction
+                    # model's slip and a recognizer's are different lessons.
+                    "output_method": self.output_method,
+                    "correction_model": (self.llm_result.model
+                                         if self.llm_result is not None
+                                         and self.output_method in ("streamed", "clipboard")
+                                         else ""),
                 })
             if self.metrics:
                 self.metrics.log(
@@ -277,9 +258,7 @@ class Session:
         watch_for_edits(text, on_result, app=app)
 
     def _output_destination(self) -> str:
-        """Where this session's text ended up (routed target or focused app)."""
-        if self._route_destination:
-            return self._route_destination
+        """Where this session's text ended up: the app and window it started in."""
         if self.context:
             title = self.context.window_title
             return f"{self.context.app_name}: {title}" if title else self.context.app_name
@@ -349,6 +328,7 @@ class Session:
         Runs every stream in stream_plan() in parallel. If early consensus is
         reached, cancels the rest. final marks the chunk recorded after release.
         """
+        set_tag(self.tag)   # chunks transcribe on pool threads
         futures: Dict[Future, Tuple[str, str]] = {}
         heard = [mic for mic, audio in chunk.items() if len(audio) > 0]
         for mic_name, provider in self.stream_plan(heard):
@@ -396,6 +376,7 @@ class Session:
             for future in done:
                 try:
                     result = future.result()
+                    result.chunk = chunk_num
                     results.append(result)
                     with self._chunk_lock:
                         self.all_transcription_results.append(result)
@@ -442,10 +423,12 @@ class Session:
             if consensus:
                 break
 
-            # Start the clock on the stragglers once something has landed.
-            if deadline is None and results and multiplier > 0 and pending:
+            # Start the clock on the stragglers once something has landed - an
+            # answer with words in it; one that heard nothing is no evidence the
+            # rest are late. The grace never outlasts the hard limit.
+            if deadline is None and any(r.text.strip() for r in results) and multiplier > 0 and pending:
                 elapsed = time.monotonic() - started
-                deadline = started + max(elapsed * (1.0 + multiplier), min_grace)
+                deadline = started + min(max(elapsed * (1.0 + multiplier), min_grace), _CHUNK_HARD_TIMEOUT)
 
         if pending:
             for future in pending:
@@ -481,7 +464,7 @@ class Session:
 
         # Store results
         with self._chunk_lock:
-            self.chunk_results.append((results, consensus))
+            self.chunk_results.append((chunk_num, results, consensus))
 
         self._publish_partial_text()
 
@@ -496,8 +479,7 @@ class Session:
         """
         if self.observer is None:
             return
-        with self._chunk_lock:
-            texts, _ = self._aggregate_results()
+        texts, _ = self._aggregate_results()     # _parts() takes the chunk lock itself
         self._notify("partial_text", " ".join(t.strip() for t in texts if t.strip()))
 
     def _notify(self, event: str, *args) -> None:
@@ -519,6 +501,8 @@ class Session:
         # The mic is free the moment the key is released; everything below this
         # point is post-processing.
         self.is_capturing = False
+        if self.output_order is not None:
+            self._ticket = self.output_order.take()
         threading.Thread(
             target=self._finalize_impl,
             args=(final_chunk,),
@@ -533,6 +517,7 @@ class Session:
         early they can bail out: a stray tap never reaches a provider, and a
         session with no text never reaches the correction model.
         """
+        set_tag(self.tag)   # finalisation runs on its own thread
         try:
             self.finalize_start_time = time.time()
             self._collect_final_audio(final_chunk)
@@ -569,15 +554,11 @@ class Session:
             combined_text = " ".join(chunk_texts)
             print(f"[Session] {len(self.chunk_results)} chunks, {len(all_results)} transcriptions")
 
+            # Selection capture is a synthetic Cmd+C (up to 1.4s) and can outlast a
+            # fast transcription; deciding before it lands types the command.
+            self._await_context()
             if self.selected_text:
                 self._run_edit_mode(combined_text)
-                return
-
-            # One chunk that providers already agreed on needs no correction.
-            if len(self.chunk_results) == 1 and self.chunk_results[0][1]:
-                print("[Session] Fast path (consensus)")
-                self.output_method = "typed"
-                self._output(self.chunk_results[0][1])
                 return
 
             self._correct_and_output(all_results, combined_text)
@@ -640,20 +621,14 @@ class Session:
         longer looking, so it goes to the clipboard instead.
         """
         self._await_context()
-        # Usually already finished; this just collects the background snapshot.
-        self._await_field_targets()
-
-        current_context = get_app_context()
-        same_window = bool(
-            self.context and current_context
-            and current_context.bundle_id == self.context.bundle_id
-        )
+        same_window = self._in_place()
 
         corrected = (self._stream_correction(all_results) if same_window
                      else self._clipboard_correction(all_results))
         if corrected is None:
             # The model judged that the speaker called the whole dictation off.
             print("[Session] Speaker called the dictation off - typing nothing")
+            self._notify("dictation_discarded")
             if self.metrics:
                 self.metrics.log("session_discarded", session_id=str(self.id),
                                  reason="called_off")
@@ -665,11 +640,14 @@ class Session:
                 self._output(combined_text)
                 return
             self._final_text = corrected
-            self._log_output_stats(corrected, "openrouter")
-            self._start_edit_watch(corrected)
+            self._log_output_stats(corrected,
+                                   "judge" if self.output_method == "judged" else "openrouter")
+            if not self._partial_output:
+                self._start_edit_watch(corrected)
         else:
             corrected = corrected or combined_text
             self._final_text = corrected
+            self._my_turn()
             copy_to_clipboard(corrected)
             notify("Window changed - copied to clipboard")
 
@@ -700,39 +678,63 @@ class Session:
     def _correction_kwargs(self) -> dict:
         """Arguments shared by both correction paths."""
         return {
-            # History is deliberately empty: the model regurgitated prior
-            # dictations instead of transcribing the current one. Measured on
-            # captured corrections — 14 of 42 leaked, worst case emitting 187
-            # words of a previous dictation for a 4-word utterance. A short
-            # input simply cannot outweigh fluent nearby text for a small
-            # model, whatever the prompt says.
-            "history_context": "",
             "on_metadata": self._log_llm_metadata,
             "custom_instructions": self.config_snapshot.custom_instructions,
-            "field_targets": self.field_targets,
             "on_generation_metadata": self._log_generation_metadata,
         }
 
     def _stream_correction(self, all_results: List[TranscriptionResult]) -> Optional[str]:
         """
-        Type tokens as they arrive.
+        Type tokens as they arrive, unless the judge says they need no correcting.
+
+        The judge and the correction model are asked at the same moment and the
+        first usable answer wins: a "clean" verdict lands in ~250ms against the
+        correction model's ~750ms first token, so it types the transcript and
+        the correction never reaches the screen. Everything else costs nothing,
+        because the correction was already in flight.
 
         Returns the typed text, "" if the correction failed, or None when the
         model replied that the speaker called the whole dictation off.
         """
-        from .correct import correct_with_llm
-        from .fields import TargetStreamParser
+        from .correct import CorrectionInterrupted, correct_with_llm
 
         self.output_method = "streamed"
-        # With routing off there is no TARGET line to strip, so type tokens
-        # straight through rather than buffering to look for one.
-        parser = (TargetStreamParser(on_target=self._handle_route_target)
-                  if self.field_targets else None)
         continuing = self._continues_previous()
         separator_pending = [continuing]
         marker = NothingMarker()
         dictation = DictationFilter(continuing=continuing)
         typed: List[str] = []
+
+        # Whoever types first owns the output; the loser's tokens are dropped.
+        winner: List[str] = []
+        claim_lock = threading.Lock()
+
+        def claim(who: str) -> bool:
+            with claim_lock:
+                if not winner:
+                    winner.append(who)
+                return winner[0] == who
+
+        def claimed() -> bool:
+            with claim_lock:
+                return bool(winner)
+
+        # Checked between tokens, at most every 100ms: if the speaker moves to
+        # another window mid-stream, the rest must not be typed into it. Once
+        # gone it stays gone, so the text can't resume with a hole in it.
+        held: List[str] = []
+        last_check = [0.0]
+
+        def in_place() -> bool:
+            if held:
+                return False
+            if self.origin is None:
+                return True
+            now = time.monotonic()
+            if now - last_check[0] < 0.1:
+                return True
+            last_check[0] = now
+            return at_origin(self.origin)
 
         def emit(text: str) -> None:
             text = marker.feed(text)
@@ -746,21 +748,125 @@ class Session:
             text = dictation.feed(text)
             if not text:
                 return
+            self._my_turn()
+            if not in_place():
+                held.append(text)
+                return
             typed.append(text)
             with self.output_lock:
                 type_text(text)
+            self._notify("token_typed")   # outside the lock: display only
 
-        correct_with_llm(
-            all_results, self.context, self.config_snapshot,
-            on_delta=lambda token: emit(parser.feed(token) if parser else token),
-            **self._correction_kwargs(),
-        )
-        if parser:
-            emit(parser.flush())
+        def on_delta(token: str) -> None:
+            if claim("correction"):
+                emit(token)
+
+        interrupted: List[CorrectionInterrupted] = []
+
+        def correct() -> None:
+            try:
+                correct_with_llm(all_results, self.context, self.config_snapshot,
+                                 on_delta=on_delta, **self._correction_kwargs())
+            except CorrectionInterrupted as e:
+                interrupted.append(e)
+            except Exception as e:
+                # Nothing was typed by it, so the raw transcript goes in instead.
+                print(f"[LLM] Correction failed: {e}")
+
+        verdict = self._start_judge(all_results)
+        correction = threading.Thread(target=correct, daemon=True)
+        correction.start()
+
+        if self._judge_wins(verdict, claim, claimed):
+            typed_text = verdict["v"].text
+            emit(typed_text)
+            return "".join(typed)
+
+        correction.join()
         emit(marker.flush())
         if marker.called_off:
             return None
+        if interrupted:
+            # Part of it is typed and the rest can't be joined on cleanly.
+            whole = interrupted[0].complete or " ".join(r.text for r in all_results if r.text.strip())
+            self._hand_over(whole, "The correction was cut off - the full text is on the clipboard")
+            return "".join(typed)
+        if held:
+            self._hand_over("".join(held).lstrip(), "Window changed while typing - the rest is on the clipboard")
+            return "".join(typed + held)
         return "".join(typed)
+
+    def _hand_over(self, text: str, message: str) -> None:
+        """Only part of a dictation reached the field; put the rest where the user can paste it."""
+        self._partial_output = True
+        copy_to_clipboard(text)
+        notify(message)
+        print(f"[Session] {message}")
+
+    def _start_judge(self, all_results: List[TranscriptionResult]) -> dict:
+        """
+        Ask the judge in the background. The dict fills in with "v" when it answers.
+
+        Single-chunk dictations only. The judge is handed transcripts as
+        alternative readings of the same audio and answers with the best one,
+        but across chunks they are *consecutive* pieces of one dictation - so
+        on a multi-chunk session it would type one chunk and drop the rest.
+        A long dictation is also nearly always worth correcting: over the
+        logged sessions, every multi-chunk one scored far too much filler to
+        skip anyway.
+        """
+        from .judge import judge_transcripts
+
+        box: dict = {"done": threading.Event()}
+        with self._chunk_lock:
+            chunks = len(self.chunk_results)
+        if chunks > 1:
+            box["done"].set()
+            return box
+
+        def run() -> None:
+            try:
+                box["v"] = judge_transcripts(all_results, self.config_snapshot, self.context)
+            except Exception as e:
+                print(f"[Judge] failed ({e}); using the correction model")
+            finally:
+                box["done"].set()
+
+        threading.Thread(target=run, daemon=True).start()
+        return box
+
+    def _judge_wins(self, box: dict, claim, claimed) -> bool:
+        """
+        Wait for the judge only while the correction has typed nothing.
+
+        Returns True when it came back clean in time and this call owns the
+        output. A slow or unavailable judge simply loses.
+        """
+        from .judge import _timeout_seconds
+
+        deadline = time.monotonic() + _timeout_seconds(self.config_snapshot)
+        while not box["done"].wait(0.02):
+            if claimed() or time.monotonic() > deadline:
+                break
+        verdict = box.get("v")
+        if self.metrics and verdict is not None:
+            self.metrics.log("judge", session_id=str(self.id), clean=verdict.clean,
+                             scores={k: round(v, 3) for k, v in verdict.scores.items()},
+                             latency_ms=verdict.latency_ms, model=verdict.model)
+        if verdict is not None:
+            # Every verdict, not just the ones that win: a judge that only
+            # speaks up when it acts looks like a judge that never ran.
+            scores = " ".join(f"{k} {v:.2f}" for k, v in verdict.scores.items())
+            print(f"[Judge] {'no correction needed' if verdict.clean else 'correcting'} "
+                  f"({scores}) | {verdict.latency_ms}ms")
+        if verdict is None or not verdict.clean:
+            return False
+        if not claim("judge"):
+            return False   # the correction model was already typing
+        print(f"[Judge] typing the transcript ({verdict.latency_ms}ms)")
+        self.output_method = "judged"
+        self._notify("correction_skipped")
+        return True
 
     def _clipboard_correction(self, all_results: List[TranscriptionResult]) -> Optional[str]:
         """
@@ -769,13 +875,11 @@ class Session:
         Same return contract as _stream_correction.
         """
         from .correct import correct_with_llm
-        from .fields import parse_target_prefix
 
         self.output_method = "clipboard"
         corrected = correct_with_llm(
             all_results, self.context, self.config_snapshot, **self._correction_kwargs()
         )
-        _, corrected = parse_target_prefix(corrected)
         if not corrected:
             print("[Session] LLM correction failed - using raw transcript")
             return ""
@@ -818,7 +922,7 @@ class Session:
         Release the session, whatever happened above.
 
         Bookkeeping is wrapped separately because anything throwing here used
-        to skip the release below, leaving is_active True forever so every
+        to skip the release below, leaving the session held forever so every
         later key press was rejected as busy until the app was restarted.
         """
         try:
@@ -829,6 +933,8 @@ class Session:
                     total_duration_ms=(time.time() - self.start_time) * 1000,
                     chunks=len(self.chunk_results),
                     final_text=self._final_text[:500] if self._final_text else "",
+                    words=len(self._final_text.split()) if self._final_text else 0,
+                    app=self.context.app_name if self.context else "",
                 )
             if (self.training_writer
                     and self.config_snapshot.training_enabled
@@ -838,7 +944,8 @@ class Session:
         except Exception as e:
             print(f"[Session] Post-session bookkeeping failed: {e}")
 
-        self.is_active = False
+        if self.output_order is not None and self._ticket is not None:
+            self.output_order.done(self._ticket)
         self.is_capturing = False
         self._executor.shutdown(wait=False)
         try:
@@ -867,6 +974,11 @@ class Session:
                 return True
         return False
 
+    def _parts(self) -> List[ChunkResult]:
+        """The chunks in the order they were spoken, whatever order they finished in."""
+        with self._chunk_lock:
+            return sorted(self.chunk_results, key=lambda part: part[0])
+
     def _aggregate_results(self) -> Tuple[List[str], List[TranscriptionResult]]:
         """
         Aggregate chunk results.
@@ -877,7 +989,7 @@ class Session:
         chunk_texts: List[str] = []
         all_results: List[TranscriptionResult] = []
 
-        for results, consensus in self.chunk_results:
+        for _, results, consensus in self._parts():
             all_results.extend(results)
 
             if consensus:
@@ -907,19 +1019,15 @@ class Session:
         # Determine correction provider
         correction_provider = "consensus" if self.llm_result is None else self.llm_result.provider
 
+        self._my_turn()
         with self.output_lock:
-            current_context = get_app_context()
-
-            # Check if window changed (with null safety)
-            if self.context and current_context:
-                if current_context.bundle_id != self.context.bundle_id:
-                    # Window changed! Copy to clipboard instead
-                    copy_to_clipboard(text)
-                    self.output_method = "clipboard"  # Track actual output method
-                    print("[Timing] Output: clipboard (window changed)")
-                    notify("Window changed - copied to clipboard")
-                    self.history.add(text, destination=self._output_destination())
-                    return
+            if not self._in_place():
+                copy_to_clipboard(text)
+                self.output_method = "clipboard"  # Track actual output method
+                print("[Timing] Output: clipboard (window changed)")
+                notify("Window changed - copied to clipboard")
+                self.history.add(text, destination=self._output_destination())
+                return
 
             type_text(text)
             self.output_method = "typed"  # Track actual output method
@@ -958,14 +1066,14 @@ class Session:
                 if chunks:
                     audio_data[mic_name] = np.concatenate(chunks)
             # Also copy transcription results
-            transcription_results = list(self.all_transcription_results)
+            transcription_results = sorted(self.all_transcription_results, key=lambda r: r.chunk)
 
         if not audio_data:
             return
 
         # Build consensus info
         consensus_info: Optional[Dict] = None
-        for results, consensus in self.chunk_results:
+        for _, results, consensus in self._parts():
             if consensus:
                 from .consensus import normalize_for_matching
                 norm_consensus = normalize_for_matching(consensus)
@@ -1004,7 +1112,6 @@ class Session:
             "enabled_mics": self.config_snapshot.enabled_mics,
             "enabled_providers": self.config_snapshot.enabled_providers,
             "consensus_threshold": self.config_snapshot.consensus_threshold,
-            "consensus_max_words": self.config_snapshot.consensus_max_words,
             "openrouter_stt_models": self.config_snapshot.openrouter_stt_models,
             "openrouter_correction_model": self.config_snapshot.openrouter_correction_model,
             "openrouter_correction_provider_order": self.config_snapshot.openrouter_correction_provider_order,
@@ -1060,22 +1167,6 @@ class TranscriptionHistory:
             # Prune old entries
             self._prune()
 
-    def get_context(self) -> str:
-        """
-        Get recent transcriptions as context string, newest last.
-
-        Each entry is prefixed with the destination it was sent to, so the
-        routing model knows which conversation each past dictation belongs to.
-        """
-        with self._lock:
-            self._prune()
-            if not self._entries:
-                return ""
-            parts = []
-            for _, text, dest in self._entries[-self.max_entries:]:
-                parts.append(f"[to {dest}] {text}" if dest else text)
-            return " | ".join(parts)
-
     def _prune(self) -> None:
         """Remove entries older than max_age_seconds and enforce max_entries."""
         cutoff = time.time() - self.max_age_seconds
@@ -1083,6 +1174,49 @@ class TranscriptionHistory:
         # Also enforce max_entries to prevent unbounded growth
         if len(self._entries) > self.max_entries:
             self._entries = self._entries[-self.max_entries:]
+
+
+class OutputOrder:
+    """
+    Dictations reach the screen in the order they were released.
+
+    A new recording can start while the last one is still being corrected, and
+    a short second dictation can be ready first - typing it then would splice
+    it into the middle of the first one's streamed text. Each session takes a
+    ticket on release and waits for its turn just before its first keystroke,
+    so its correction still runs in parallel.
+    """
+
+    def __init__(self, patience: float = 15.0):
+        self._turn = threading.Condition()
+        self._issued = 0
+        self._serving = 0
+        self._finished: set = set()
+        self._patience = patience     # never wait forever on a session that hung
+
+    def take(self) -> int:
+        with self._turn:
+            ticket = self._issued
+            self._issued += 1
+            return ticket
+
+    def wait(self, ticket: int) -> None:
+        deadline = time.monotonic() + self._patience
+        with self._turn:
+            while self._serving < ticket:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    print("[Session] The previous dictation is still typing; going ahead")
+                    return
+                self._turn.wait(remaining)
+
+    def done(self, ticket: int) -> None:
+        with self._turn:
+            self._finished.add(ticket)
+            while self._serving in self._finished:
+                self._finished.discard(self._serving)
+                self._serving += 1
+            self._turn.notify_all()
 
 
 class SessionManager:
@@ -1110,6 +1244,7 @@ class SessionManager:
         self.active_session: Optional[Session] = None
         self._lock = threading.Lock()
         self._output_lock = threading.Lock()
+        self._output_order = OutputOrder()
         self.history = TranscriptionHistory()
 
     def start_session(self) -> Optional[Session]:
@@ -1126,6 +1261,7 @@ class SessionManager:
                     config_snapshot=self.config_snapshot_fn(),
                     providers=self.providers,
                     output_lock=self._output_lock,
+                    output_order=self._output_order,
                     on_complete=self._on_session_complete,
                     history=self.history,
                     metrics=self.metrics,
