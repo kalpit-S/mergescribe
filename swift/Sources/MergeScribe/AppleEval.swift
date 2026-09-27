@@ -2,9 +2,11 @@ import Foundation
 import MergeScribeCore
 import MergeScribeMac
 
-/// `MergeScribe apple-eval <out.jsonl> [--days N] [--limit N]`: Apple's on-device recognizer
-/// over saved single-chunk dictations, one JSON line each (session, text, latency), for
-/// scoring against the logged cloud recognizers the way scripts/provider_value.py does.
+/// `MergeScribe apple-eval <out.jsonl> [--days N] [--limit N] [--sessions <file>] [--vocab <file>]`:
+/// Apple's on-device recognizer over saved single-chunk dictations, one JSON line each (session,
+/// text, latency), for scoring against the logged cloud recognizers the way
+/// scripts/provider_value.py does. --sessions takes one capture directory per line; --vocab one
+/// term per line (default: the speaker's known terms; an empty file primes nothing).
 enum AppleEval {
     static func run(_ arguments: [String]) async -> Int32 {
         guard #available(macOS 26.0, *) else { print("Needs macOS 26"); return 1 }
@@ -19,13 +21,18 @@ enum AppleEval {
         let training = AppPaths().trainingDir
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        var sessions: [URL] = []
-        for back in 0..<days {
+        func file(_ name: String) -> [String]? {
+            guard let index = arguments.firstIndex(of: name), index + 1 < arguments.count,
+                  let text = try? String(contentsOfFile: arguments[index + 1], encoding: .utf8) else { return nil }
+            return text.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty }
+        }
+        var sessions: [URL] = file("--sessions")?.map { URL(fileURLWithPath: $0) } ?? []
+        for back in 0..<(sessions.isEmpty ? days : 0) {
             let day = training.appendingPathComponent(formatter.string(from: Date().addingTimeInterval(-86400 * Double(back))))
             let entries = (try? FileManager.default.contentsOfDirectory(at: day, includingPropertiesForKeys: nil)) ?? []
             sessions += entries.sorted { $0.path > $1.path }
         }
-        let vocabulary = Array(VocabularyStore().knownTerms().prefix(AppleRecognizer.maxContextualStrings))
+        let vocabulary = Array((file("--vocab") ?? VocabularyStore().knownTerms()).prefix(AppleRecognizer.maxContextualStrings))
         FileManager.default.createFile(atPath: out.path, contents: nil)
         let handle = try! FileHandle(forWritingTo: out)
         var done = 0, totalAudio = 0.0, totalTime = 0.0
