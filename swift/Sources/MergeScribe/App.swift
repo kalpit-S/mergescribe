@@ -53,8 +53,18 @@ final class App: NSObject, NSApplicationDelegate {
         return out
     }
 
+    /// Opened again (Spotlight, Finder, `open`) while running: Settings, since the menu bar icon
+    /// can be hidden when the menu bar is full.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openSettings()
+        return false
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.line("MergeScribe \(MergeScribe.version) starting...")
+        DistributedNotificationCenter.default().addObserver(forName: SingleInstance.showSettings, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.openSettings() }
+        }
         settings = Settings.load(paths: paths)
         Log.line("  Enabled mics: \(settings.enabledMics)")
         Log.line("  Transcription: \(settings.openrouterSttModels)")

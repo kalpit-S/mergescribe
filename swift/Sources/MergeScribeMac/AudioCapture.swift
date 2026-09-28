@@ -18,72 +18,246 @@ public enum HostClock {
     public static var now: Double { seconds(mach_absolute_time()) }
 }
 
-/// One microphone: its own engine, its hardware format converted to 16 kHz mono, handed
-/// on in 1024-sample blocks stamped with when they were heard.
+/// One microphone, recorded through its own input-only HAL unit and handed on as 16 kHz
+/// mono in 1024-sample blocks, each stamped with when it was heard.
+///
+/// The unit is pointed at this device before it is initialized and has no output side, so the
+/// system's default input and output never touch it. They move when headphones connect, and a
+/// Bluetooth headset drops into its 16 kHz call mode as soon as anything opens its mic.
+/// AVAudioEngine couldn't promise that: its input shares the engine's I/O unit with the default
+/// output, and with a headset connected it failed to start (-10868) or ran silent.
 final class MicCapture: @unchecked Sendable {
     let name: String
     let device: CoreAudioDevices.Device
-    private let engine = AVAudioEngine()
-    private var converter: AVAudioConverter?
     private let target: AVAudioFormat
-    private var pending: [Float] = []
-    private var pendingStart: Double = 0     // when the first pending sample was heard
     private let onBlock: @Sendable ([Float], Double) -> Void
+
+    // Set up and torn down on the caller's (serial) queue, only while the unit is stopped.
+    private var unit: AudioUnit?
+    private var deviceRate = 0.0
+    private var channels = 1
+    private var converter: AVAudioConverter?
+    private var scratch: UnsafeMutablePointer<Float>?
+
+    // The real-time thread renders into `scratch` and mixes it into `ring`; the drain thread
+    // takes it from there. Both sides hold `ringLock` only to copy.
+    private static let scratchFrames = 8192
+    private static let ringCapacity = 96_000          // mono samples: 2 s at 48 kHz
+    private let ring = UnsafeMutablePointer<Float>.allocate(capacity: ringCapacity)
+    private let ringLock: UnsafeMutablePointer<os_unfair_lock> = {
+        let lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+        lock.initialize(to: os_unfair_lock())
+        return lock
+    }()
+    private var written = 0           // samples ever written
+    private var read = 0              // samples ever taken
+    private var stampSample = 0       // the latest callback's first sample
+    private var stampTime = 0.0       // and when it was heard
+    private var restart = false       // a new start: the drain drops what it held
+    private var generation = 0        // bumped when a unit goes, so its drain thread ends
+    private let wake = DispatchSemaphore(value: 0)
+    private var drained: DispatchSemaphore?   // signalled when the current drain thread has ended
+
+    // Drain thread only.
+    private var pending: [Float] = []
+    private var pendingStart = 0.0
 
     init(name: String, device: CoreAudioDevices.Device, sampleRate: Int, onBlock: @escaping @Sendable ([Float], Double) -> Void) {
         self.name = name
         self.device = device
         self.onBlock = onBlock
         target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(sampleRate), channels: 1, interleaved: false)!
+        _ = HostClock.now   // its timebase is read once, not on the real-time thread
     }
 
-    var isRunning: Bool { engine.isRunning }
-    private var tapped = false
+    deinit {
+        tearDown()
+        ring.deallocate()
+        ringLock.deallocate()
+    }
+
+    var isRunning: Bool {
+        guard let unit else { return false }
+        var running: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        return AudioUnitGetProperty(unit, kAudioOutputUnitProperty_IsRunning, kAudioUnitScope_Global, 0, &running, &size) == noErr
+            && running != 0
+    }
+
+    /// Ready to start at once: the unit made and pointed at the device, nothing heard yet.
+    func prepare() throws {
+        if unit != nil, CoreAudioDevices.nominalRate(device.id) == deviceRate { return }
+        tearDown()
+        try build()
+    }
 
     func start() throws {
-        if engine.isRunning { return }
-        if tapped {
-            // Stopped between dictations: the tap and converter are still in place.
-            pending.removeAll()
-            engine.prepare()
-            try engine.start()
-            return
+        if isRunning { return }
+        os_unfair_lock_lock(ringLock); restart = true; read = written; os_unfair_lock_unlock(ringLock)
+        do {
+            try prepare()
+            try check(AudioOutputUnitStart(unit!))
+        } catch {
+            // Whatever state the device left the unit in, a fresh one gets one more try.
+            tearDown()
+            try build()
+            try check(AudioOutputUnitStart(unit!))
         }
-        let input = engine.inputNode
-        // The input node records the default device unless its I/O unit is pointed elsewhere.
-        guard let unit = input.audioUnit else { throw CaptureError.noAudioUnit }
-        var id = device.id
-        let status = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                          &id, UInt32(MemoryLayout<AudioDeviceID>.size))
-        guard status == noErr else { throw CaptureError.deviceRefused(status) }
-        let format = input.inputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else { throw CaptureError.noFormat }
-        guard let converter = AVAudioConverter(from: format, to: target) else { throw CaptureError.noConverter }
-        converter.downmix = true
-        self.converter = converter
+    }
 
-        let ratio = target.sampleRate / format.sampleRate
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, time in
-            guard let self else { return }
-            // The tap runs on AVAudioEngine's own thread, not the real-time one, so converting
-            // and allocating here is safe.
-            let heard = time.isHostTimeValid ? HostClock.seconds(time.hostTime) : HostClock.now
-            let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 32
-            guard let out = AVAudioPCMBuffer(pcmFormat: self.target, frameCapacity: capacity) else { return }
+    /// Stop listening, keeping the unit for the next start.
+    func pause() {
+        if let unit { AudioOutputUnitStop(unit) }
+    }
+
+    func stop() {
+        tearDown()
+    }
+
+    enum CaptureError: Error { case noAudioUnit, failed(OSStatus), noFormat, noConverter }
+
+    private func check(_ status: OSStatus) throws {
+        guard status == noErr else { throw CaptureError.failed(status) }
+    }
+
+    private func build() throws {
+        var description = AudioComponentDescription(componentType: kAudioUnitType_Output, componentSubType: kAudioUnitSubType_HALOutput,
+                                                    componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0)
+        guard let component = AudioComponentFindNext(nil, &description) else { throw CaptureError.noAudioUnit }
+        var made: AudioUnit?
+        try check(AudioComponentInstanceNew(component, &made))
+        guard let unit = made else { throw CaptureError.noAudioUnit }
+        do {
+            var on: UInt32 = 1, off: UInt32 = 0
+            let flagSize = UInt32(MemoryLayout<UInt32>.size)
+            try check(AudioUnitSetProperty(unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &on, flagSize))
+            try check(AudioUnitSetProperty(unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &off, flagSize))
+            var id = device.id
+            try check(AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                           &id, UInt32(MemoryLayout<AudioDeviceID>.size)))
+            // The device's own format; the unit hands it over at the same rate, as float.
+            var hardware = AudioStreamBasicDescription()
+            var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+            try check(AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &hardware, &formatSize))
+            guard hardware.mSampleRate > 0, hardware.mChannelsPerFrame > 0 else { throw CaptureError.noFormat }
+            let channels = Int(hardware.mChannelsPerFrame)
+            var client = AudioStreamBasicDescription(
+                mSampleRate: hardware.mSampleRate, mFormatID: kAudioFormatLinearPCM,
+                mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+                mBytesPerPacket: UInt32(4 * channels), mFramesPerPacket: 1, mBytesPerFrame: UInt32(4 * channels),
+                mChannelsPerFrame: UInt32(channels), mBitsPerChannel: 32, mReserved: 0)
+            try check(AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &client, formatSize))
+            var maxFrames = UInt32(Self.scratchFrames)
+            AudioUnitSetProperty(unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, flagSize)
+            var callback = AURenderCallbackStruct(inputProc: MicCapture.inputCallback,
+                                                  inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
+            try check(AudioUnitSetProperty(unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
+                                           &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size)))
+            let mono = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: hardware.mSampleRate, channels: 1, interleaved: false)!
+            guard let converter = AVAudioConverter(from: mono, to: target) else { throw CaptureError.noConverter }
+            try check(AudioUnitInitialize(unit))
+            self.channels = channels
+            deviceRate = hardware.mSampleRate
+            self.converter = converter
+            scratch = .allocate(capacity: Self.scratchFrames * channels)
+            self.unit = unit
+        } catch {
+            AudioComponentInstanceDispose(unit)
+            throw error
+        }
+        os_unfair_lock_lock(ringLock); let mine = generation; os_unfair_lock_unlock(ringLock)
+        let done = DispatchSemaphore(value: 0)
+        drained = done
+        let thread = Thread { [weak self] in
+            self?.drain(mine)
+            done.signal()
+        }
+        thread.name = "mergescribe.mic.\(name)"
+        thread.qualityOfService = .userInteractive
+        thread.start()
+    }
+
+    private func tearDown() {
+        guard let unit else { return }
+        AudioOutputUnitStop(unit)
+        AudioUnitUninitialize(unit)
+        AudioComponentInstanceDispose(unit)
+        self.unit = nil
+        os_unfair_lock_lock(ringLock); generation += 1; os_unfair_lock_unlock(ringLock)
+        wake.signal()
+        // One drain thread at a time: a rebuild right after this must not find the old one still
+        // taking from the ring. It finishes the block it is on, a few milliseconds at most.
+        _ = drained?.wait(timeout: .now() + 1)
+        drained = nil
+        scratch?.deallocate()
+        scratch = nil
+    }
+
+    private static let inputCallback: AURenderCallback = { refCon, flags, timestamp, bus, frames, _ in
+        Unmanaged<MicCapture>.fromOpaque(refCon).takeUnretainedValue().render(flags, timestamp, bus, frames)
+    }
+
+    /// The real-time thread: no allocation, no waiting beyond the copy lock.
+    private func render(_ flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, _ timestamp: UnsafePointer<AudioTimeStamp>,
+                        _ bus: UInt32, _ frames: UInt32) -> OSStatus {
+        guard let unit, let scratch, Int(frames) <= Self.scratchFrames else { return noErr }
+        let channels = self.channels
+        var list = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(
+            mNumberChannels: UInt32(channels), mDataByteSize: frames * UInt32(4 * channels), mData: UnsafeMutableRawPointer(scratch)))
+        let status = AudioUnitRender(unit, flags, timestamp, bus, frames, &list)
+        guard status == noErr else { return status }
+        let heard = timestamp.pointee.mFlags.contains(.hostTimeValid) ? HostClock.seconds(timestamp.pointee.mHostTime) : HostClock.now
+        let count = Int(frames), scale = 1 / Float(channels)
+        os_unfair_lock_lock(ringLock)
+        stampSample = written
+        stampTime = heard
+        for i in 0..<count {
+            var sum: Float = 0
+            for c in 0..<channels { sum += scratch[i * channels + c] }
+            ring[(written + i) % Self.ringCapacity] = sum * scale
+        }
+        written += count
+        if written - read > Self.ringCapacity { read = written - Self.ringCapacity }   // the drain fell 2 s behind
+        os_unfair_lock_unlock(ringLock)
+        wake.signal()
+        return noErr
+    }
+
+    /// The drain thread: converts what was heard to the target rate and cuts it into blocks.
+    private func drain(_ mine: Int) {
+        while true {
+            wake.wait()
+            os_unfair_lock_lock(ringLock)
+            if generation != mine { os_unfair_lock_unlock(ringLock); return }
+            let fresh = restart
+            restart = false
+            let count = written - read
+            var samples = [Float](repeating: 0, count: count)
+            for i in 0..<count { samples[i] = ring[(read + i) % Self.ringCapacity] }
+            let firstHeard = stampTime - Double(stampSample - read) / deviceRate
+            read = written
+            os_unfair_lock_unlock(ringLock)
+            if fresh {
+                pending.removeAll()
+                converter?.reset()
+            }
+            guard count > 0, let converter else { continue }
+            let input = AVAudioPCMBuffer(pcmFormat: converter.inputFormat, frameCapacity: AVAudioFrameCount(count))!
+            input.frameLength = AVAudioFrameCount(count)
+            samples.withUnsafeBufferPointer { input.floatChannelData![0].update(from: $0.baseAddress!, count: count) }
+            let capacity = AVAudioFrameCount(Double(count) * target.sampleRate / converter.inputFormat.sampleRate) + 32
+            guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { continue }
             let fed = Locked(false)
             var error: NSError?
             converter.convert(to: out, error: &error) { _, status in
                 if fed.current { status.pointee = .noDataNow; return nil }
                 fed.update { $0 = true }
                 status.pointee = .haveData
-                return buffer
+                return input
             }
-            guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { return }
-            self.append(Array(UnsafeBufferPointer(start: data, count: Int(out.frameLength))), heardAt: heard)
+            guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { continue }
+            append(Array(UnsafeBufferPointer(start: data, count: Int(out.frameLength))), heardAt: firstHeard)
         }
-        tapped = true
-        engine.prepare()
-        try engine.start()
     }
 
     /// Collect converted audio into fixed blocks, each stamped with when its first sample was heard.
@@ -98,19 +272,6 @@ final class MicCapture: @unchecked Sendable {
             pendingStart += blockSeconds
         }
     }
-
-    /// Stop listening, keeping the tap for the next start.
-    func pause() {
-        engine.stop()
-    }
-
-    func stop() {
-        if tapped { engine.inputNode.removeTap(onBus: 0) }
-        tapped = false
-        engine.stop()
-    }
-
-    enum CaptureError: Error { case noAudioUnit, deviceRefused(OSStatus), noFormat, noConverter }
 }
 
 /// Every enabled microphone, recorded in parallel into one Chunker.
@@ -206,7 +367,7 @@ public final class AudioEngine: @unchecked Sendable {
             }
             do {
                 processing.sync { chunker.addMic(name) }
-                if shouldRun { try capture.start() }
+                if shouldRun { try capture.start() } else { try capture.prepare() }
                 captures.update { $0[name] = capture }
                 Log.line("[Audio] Mic \(shouldRun ? "connected" : "ready"): \(name) (\(device.name))")
             } catch {
@@ -226,7 +387,7 @@ public final class AudioEngine: @unchecked Sendable {
         processing.sync {
             self.onChunk = onChunk
             self.onBlock = onBlock
-            chunker.startRecording(now: now)
+            chunker.startRecording(now: now, preroll: open)
             openedAt = open ? nil : now
             heardSinceOpen = []
             drainMessages()

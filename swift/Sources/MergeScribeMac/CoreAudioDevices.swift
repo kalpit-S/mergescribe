@@ -36,6 +36,11 @@ public enum CoreAudioDevices {
         return value.takeRetainedValue() as String
     }
 
+    /// The rate a device is running at; 0 when it can't be read.
+    public static func nominalRate(_ device: AudioDeviceID) -> Double {
+        get(device, address(kAudioDevicePropertyNominalSampleRate), Float64(0)) ?? 0
+    }
+
     /// Every device that can record.
     public static func inputDevices() -> [Device] {
         var address = address(kAudioHardwarePropertyDevices)

@@ -84,6 +84,17 @@ private func chunker(_ mics: [String] = ["mic1"], _ change: (inout Chunker.Confi
         #expect(c.mics[0].chunk.isEmpty)
     }
 
+    @Test func noPreRollWhenTheMicsWereClosed() {
+        // Opened on the press, a mic has heard nothing before it: what it holds is the end of
+        // the last dictation, which a quick next one would otherwise repeat.
+        var c = chunker()
+        c.startRecording(now: 0)
+        for i in 0..<10 { _ = c.feed("mic1", square(0.1), now: Double(i) * block) }
+        _ = c.stopRecording()
+        c.startRecording(now: 10.5 * block, preroll: false)
+        #expect(c.mics[0].chunk.isEmpty)
+    }
+
     @Test func preRollIsKeptAndItsSpeechCounts() {
         var c = chunker()
         for i in 0..<30 { _ = c.feed("mic1", square(0.001), now: Double(i) * block) }

@@ -136,13 +136,16 @@ public struct Chunker: Sendable {
     // MARK: - Recording
 
     /// Begin a dictation: what the microphones heard just before the press opens it.
-    public mutating func startRecording(now: Double) {
+    ///
+    /// preroll false: the microphones were closed until now, so anything held is the tail of
+    /// the last dictation, and a dictation started just after it would say that again.
+    public mutating func startRecording(now: Double, preroll: Bool = true) {
         isRecording = true
         lastSpeech = now          // assume speech at the start
         chunkHasSpeech = false
         // Only the moment before the press: a mic that stopped delivering (AirPods idling)
         // would otherwise replay what it last heard, maybe minutes ago.
-        let horizon = config.prerollSeconds + 0.25
+        let horizon = preroll ? config.prerollSeconds + 0.25 : -1
         for i in mics.indices {
             let fresh = mics[i].preroll.filter { now - $0.heard <= horizon }.map(\.block)
             mics[i].chunk = fresh

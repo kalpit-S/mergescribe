@@ -11,7 +11,9 @@ swift/scripts/build-app.sh          # release build -> swift/build/MergeScribe.a
 open swift/build/MergeScribe.app
 ```
 
-Quit the Python app first: both listen for the same trigger key.
+Quit the Python app first: both listen for the same trigger key. Opening MergeScribe again while
+it runs (Spotlight, `open`, or the binary from a terminal) opens its Settings instead of a second
+copy, and `MergeScribe settings` does the same: the way in when a full menu bar hides the icon.
 
 The build uses the Command Line Tools toolchain (Swift 6.2 and the macOS 26 SDK, which
 SpeechAnalyzer needs), with no third-party dependencies.
@@ -33,6 +35,7 @@ scripts/test.sh                                   # the tests, a second or two
 swift run --scratch-path .build-clt MergeScribe replay ~/.mergescribe/training/<date>/<session>   # a saved dictation, end to end
 swift run --scratch-path .build-clt MergeScribe stats                       # the Stats page's numbers
 swift run --scratch-path .build-clt MergeScribe devices                     # input devices Core Audio sees
+build/MergeScribe.app/Contents/MacOS/MergeScribe mic-test [seconds] [times]   # open and close the enabled mics as dictations do
 swift run --scratch-path .build-clt MergeScribe hud-preview [--loop]        # the HUD playing a scripted dictation
 swift run --scratch-path .build-clt MergeScribe hud-frames <dir>            # the same, rendered to PNGs
 swift run --scratch-path .build-clt MergeScribe settings-preview [Stats]    # the Settings window on its own, at a section
@@ -62,6 +65,11 @@ decisions, chunking of scripted audio) and the Swift tests assert the same answe
   Python app had a second, fixed gate (0.35s at -55 dBFS) that let room tone through in loud
   rooms. Until a mic's floor is measured the old gate still decides, and the log notes any
   final chunk where the two would disagree.
+- **Each mic through its own input-only HAL unit**, pointed at that device before it starts.
+  AVAudioEngine's input shares an I/O unit with the default output: with a Bluetooth headset
+  connected (16 kHz in its call mode) it failed to start or ran silent, and it could open the
+  headset's mic. The mics open on the key press (about 35-50 ms until audio arrives) unless
+  "Keep the microphone on" is set.
 - **Recognizers per recording.** Each dictation builds its recognizer set from the settings of
   the moment, so a change in Settings never swaps them under a session that is finishing.
 - **Typing from a private event source**, so a modifier you are holding can't turn text into

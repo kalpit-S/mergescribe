@@ -71,6 +71,31 @@ case "devices":
         print("\(device.name)  [\(device.inputChannels) ch, id \(device.id)]")
     }
 
+case "mic-test":
+    // The enabled microphones, opened and closed as dictations open and close them.
+    let seconds = arguments.count > 1 ? Double(arguments[1]) ?? 3 : 3
+    let times = arguments.count > 2 ? Int(arguments[2]) ?? 1 : 1
+    let settings = Settings.load(paths: AppPaths(), log: { print($0) })
+    let audio = AudioEngine(settings: settings)
+    print("mics: \(audio.apply(settings))")
+    for _ in 0..<times {
+        let peak = Locked(0.0), blocks = Locked(0)
+        let pressed = HostClock.now
+        audio.startRecording(onChunk: { @Sendable _ in }, onBlock: { @Sendable block in
+            blocks.update { $0 += 1 }
+            let rms = (block.reduce(0) { $0 + Double($1 * $1) } / Double(block.count)).squareRoot()
+            peak.update { $0 = max($0, rms) }
+        })
+        Thread.sleep(forTimeInterval: seconds)
+        let final = audio.stopRecording()
+        print(String(format: "%d blocks (%.1fs of audio) in %.1fs; loudest block RMS %.4f; final chunk %.1fs",
+                     blocks.current, Double(blocks.current * Chunker.blockSize) / Double(settings.sampleRate),
+                     HostClock.now - pressed, peak.current,
+                     Double(final.chunk.mics.first?.samples.count ?? 0) / Double(settings.sampleRate)))
+        Thread.sleep(forTimeInterval: 0.5)
+    }
+    audio.shutdown()
+
 case "hud-frames":
     let directory = URL(fileURLWithPath: arguments.count > 1 ? arguments[1] : "hud-frames")
     HUDScript.renderFrames(to: directory, at: [0.3, 1.0, 2.0, 3.2, 4.4, 5.2, 6.4, 7.2, 8.3])
@@ -117,7 +142,18 @@ case "settings-preview":
     MainActor.assumeIsolated { controller.present(section: section, activate: !background) }
     app.run()
 
+case "settings":
+    // Settings in the running app, for when the menu bar has no room for its icon.
+    guard let other = SingleInstance.other() else { print("MergeScribe isn't running."); exit(1) }
+    SingleInstance.askToShowSettings()
+    print("Opened Settings in MergeScribe (pid \(other.processIdentifier)).")
+
 case nil, "run":
+    if let other = SingleInstance.other() {
+        SingleInstance.askToShowSettings()
+        print("MergeScribe is already running (pid \(other.processIdentifier)); opened its Settings instead.")
+        exit(0)
+    }
     LogFile.start()
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
@@ -126,6 +162,6 @@ case nil, "run":
     app.run()
 
 default:
-    print("usage: MergeScribe [run | replay <session dir> | stats | devices | hud-frames <dir>]")
+    print("usage: MergeScribe [run | settings | replay <session dir> | stats | devices | mic-test [seconds] | hud-frames <dir>]")
     exit(2)
 }
