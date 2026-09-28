@@ -26,36 +26,44 @@ public enum HostClock {
 /// Bluetooth headset drops into its 16 kHz call mode as soon as anything opens its mic.
 /// AVAudioEngine couldn't promise that: its input shares the engine's I/O unit with the default
 /// output, and with a headset connected it failed to start (-10868) or ran silent.
+///
+/// Threads: prepare, start, pause, flush and stop come from one serial queue. The real-time
+/// callback renders, mixes to mono, and copies into `ring`; the drain thread copies out,
+/// converts to the target rate and cuts blocks. The two share `ringLock` only for the copies.
 final class MicCapture: @unchecked Sendable {
     let name: String
     let device: CoreAudioDevices.Device
     private let target: AVAudioFormat
     private let onBlock: @Sendable ([Float], Double) -> Void
 
-    // Set up and torn down on the caller's (serial) queue, only while the unit is stopped.
+    // Built and torn down on the control queue, only while no callback or drain can run.
     private var unit: AudioUnit?
     private var deviceRate = 0.0
     private var channels = 1
     private var converter: AVAudioConverter?
     private var scratch: UnsafeMutablePointer<Float>?
+    private var scratchFrames = 0
 
-    // The real-time thread renders into `scratch` and mixes it into `ring`; the drain thread
-    // takes it from there. Both sides hold `ringLock` only to copy.
-    private static let scratchFrames = 8192
     private static let ringCapacity = 96_000          // mono samples: 2 s at 48 kHz
     private let ring = UnsafeMutablePointer<Float>.allocate(capacity: ringCapacity)
+    private let taken = UnsafeMutablePointer<Float>.allocate(capacity: ringCapacity)   // the drain's copy
     private let ringLock: UnsafeMutablePointer<os_unfair_lock> = {
         let lock = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
         lock.initialize(to: os_unfair_lock())
         return lock
     }()
+    // Under ringLock.
     private var written = 0           // samples ever written
     private var read = 0              // samples ever taken
     private var stampSample = 0       // the latest callback's first sample
     private var stampTime = 0.0       // and when it was heard
     private var restart = false       // a new start: the drain drops what it held
     private var generation = 0        // bumped when a unit goes, so its drain thread ends
+    private var flushTo: Int?         // deliver everything written before this, part block included
+    private var tooLong = false       // the device sent more than a slice holds
+
     private let wake = DispatchSemaphore(value: 0)
+    private let flushed = DispatchSemaphore(value: 0)
     private var drained: DispatchSemaphore?   // signalled when the current drain thread has ended
 
     // Drain thread only.
@@ -73,6 +81,7 @@ final class MicCapture: @unchecked Sendable {
     deinit {
         tearDown()
         ring.deallocate()
+        taken.deallocate()
         ringLock.deallocate()
     }
 
@@ -93,16 +102,31 @@ final class MicCapture: @unchecked Sendable {
 
     func start() throws {
         if isRunning { return }
-        os_unfair_lock_lock(ringLock); restart = true; read = written; os_unfair_lock_unlock(ringLock)
+        locked { restart = true; read = written }
         do {
             try prepare()
             try check(AudioOutputUnitStart(unit!))
         } catch {
             // Whatever state the device left the unit in, a fresh one gets one more try.
             tearDown()
-            try build()
-            try check(AudioOutputUnitStart(unit!))
+            do {
+                try build()
+                try check(AudioOutputUnitStart(unit!))
+            } catch {
+                tearDown()
+                throw error
+            }
         }
+    }
+
+    /// Hand on everything heard so far, the last part-block included, before returning; the
+    /// blocks are delivered through onBlock first. Bounded: a stuck device can't hold it up.
+    func flush() {
+        guard unit != nil else { return }
+        while flushed.wait(timeout: .now()) == .success {}   // a late signal from a flush that timed out
+        locked { flushTo = written }
+        wake.signal()
+        _ = flushed.wait(timeout: .now() + 0.25)
     }
 
     /// Stop listening, keeping the unit for the next start.
@@ -118,6 +142,12 @@ final class MicCapture: @unchecked Sendable {
 
     private func check(_ status: OSStatus) throws {
         guard status == noErr else { throw CaptureError.failed(status) }
+    }
+
+    private func locked<T>(_ body: () -> T) -> T {
+        os_unfair_lock_lock(ringLock)
+        defer { os_unfair_lock_unlock(ringLock) }
+        return body()
     }
 
     private func build() throws {
@@ -147,8 +177,11 @@ final class MicCapture: @unchecked Sendable {
                 mBytesPerPacket: UInt32(4 * channels), mFramesPerPacket: 1, mBytesPerFrame: UInt32(4 * channels),
                 mChannelsPerFrame: UInt32(channels), mBitsPerChannel: 32, mReserved: 0)
             try check(AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &client, formatSize))
-            var maxFrames = UInt32(Self.scratchFrames)
+            // The largest slice the device may send, as the unit settles it; scratch holds one.
+            var maxFrames: UInt32 = 8192
             AudioUnitSetProperty(unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, flagSize)
+            var sliceSize = flagSize
+            AudioUnitGetProperty(unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, &sliceSize)
             var callback = AURenderCallbackStruct(inputProc: MicCapture.inputCallback,
                                                   inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
             try check(AudioUnitSetProperty(unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
@@ -159,13 +192,14 @@ final class MicCapture: @unchecked Sendable {
             self.channels = channels
             deviceRate = hardware.mSampleRate
             self.converter = converter
-            scratch = .allocate(capacity: Self.scratchFrames * channels)
+            scratchFrames = Int(max(maxFrames, 8192))
+            scratch = .allocate(capacity: scratchFrames * channels)
             self.unit = unit
         } catch {
             AudioComponentInstanceDispose(unit)
             throw error
         }
-        os_unfair_lock_lock(ringLock); let mine = generation; os_unfair_lock_unlock(ringLock)
+        let mine = locked { generation }
         let done = DispatchSemaphore(value: 0)
         drained = done
         let thread = Thread { [weak self] in
@@ -179,15 +213,15 @@ final class MicCapture: @unchecked Sendable {
 
     private func tearDown() {
         guard let unit else { return }
-        AudioOutputUnitStop(unit)
+        AudioOutputUnitStop(unit)      // returns once no callback is running
         AudioUnitUninitialize(unit)
         AudioComponentInstanceDispose(unit)
         self.unit = nil
-        os_unfair_lock_lock(ringLock); generation += 1; os_unfair_lock_unlock(ringLock)
+        locked { generation += 1 }
         wake.signal()
-        // One drain thread at a time: a rebuild right after this must not find the old one still
-        // taking from the ring. It finishes the block it is on, a few milliseconds at most.
-        _ = drained?.wait(timeout: .now() + 1)
+        // One drain thread at a time: the next build must not find this one still converting.
+        // It ends within the batch it is on.
+        drained?.wait()
         drained = nil
         scratch?.deallocate()
         scratch = nil
@@ -197,25 +231,35 @@ final class MicCapture: @unchecked Sendable {
         Unmanaged<MicCapture>.fromOpaque(refCon).takeUnretainedValue().render(flags, timestamp, bus, frames)
     }
 
-    /// The real-time thread: no allocation, no waiting beyond the copy lock.
+    /// The real-time thread: no allocation; the lock is held only to copy into the ring.
     private func render(_ flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, _ timestamp: UnsafePointer<AudioTimeStamp>,
                         _ bus: UInt32, _ frames: UInt32) -> OSStatus {
-        guard let unit, let scratch, Int(frames) <= Self.scratchFrames else { return noErr }
-        let channels = self.channels
+        guard let unit, let scratch else { return noErr }
+        let count = Int(frames), channels = self.channels
+        guard count <= scratchFrames else {
+            locked { tooLong = true }
+            return noErr
+        }
         var list = AudioBufferList(mNumberBuffers: 1, mBuffers: AudioBuffer(
             mNumberChannels: UInt32(channels), mDataByteSize: frames * UInt32(4 * channels), mData: UnsafeMutableRawPointer(scratch)))
         let status = AudioUnitRender(unit, flags, timestamp, bus, frames, &list)
         guard status == noErr else { return status }
         let heard = timestamp.pointee.mFlags.contains(.hostTimeValid) ? HostClock.seconds(timestamp.pointee.mHostTime) : HostClock.now
-        let count = Int(frames), scale = 1 / Float(channels)
+        if channels > 1 {   // mixed down in place: frame i's average lands in slot i
+            let scale = 1 / Float(channels)
+            for i in 0..<count {
+                var sum: Float = 0
+                for c in 0..<channels { sum += scratch[i * channels + c] }
+                scratch[i] = sum * scale
+            }
+        }
         os_unfair_lock_lock(ringLock)
         stampSample = written
         stampTime = heard
-        for i in 0..<count {
-            var sum: Float = 0
-            for c in 0..<channels { sum += scratch[i * channels + c] }
-            ring[(written + i) % Self.ringCapacity] = sum * scale
-        }
+        let at = written % Self.ringCapacity
+        let first = min(count, Self.ringCapacity - at)
+        (ring + at).update(from: scratch, count: first)
+        if first < count { ring.update(from: scratch + first, count: count - first) }
         written += count
         if written - read > Self.ringCapacity { read = written - Self.ringCapacity }   // the drain fell 2 s behind
         os_unfair_lock_unlock(ringLock)
@@ -232,35 +276,52 @@ final class MicCapture: @unchecked Sendable {
             let fresh = restart
             restart = false
             let count = written - read
-            var samples = [Float](repeating: 0, count: count)
-            for i in 0..<count { samples[i] = ring[(read + i) % Self.ringCapacity] }
+            let at = read % Self.ringCapacity
+            let first = min(count, Self.ringCapacity - at)
+            taken.update(from: ring + at, count: first)
+            if first < count { (taken + first).update(from: ring, count: count - first) }
             let firstHeard = stampTime - Double(stampSample - read) / deviceRate
             read = written
+            let flushing = flushTo.map { read >= $0 } ?? false
+            if flushing { flushTo = nil }
+            let overran = tooLong
+            tooLong = false
             os_unfair_lock_unlock(ringLock)
+
+            if overran { Log.line("[Audio] \(name) sent more audio in one go than expected; some was dropped") }
             if fresh {
                 pending.removeAll()
                 converter?.reset()
             }
-            guard count > 0, let converter else { continue }
-            let input = AVAudioPCMBuffer(pcmFormat: converter.inputFormat, frameCapacity: AVAudioFrameCount(count))!
-            input.frameLength = AVAudioFrameCount(count)
-            samples.withUnsafeBufferPointer { input.floatChannelData![0].update(from: $0.baseAddress!, count: count) }
-            let capacity = AVAudioFrameCount(Double(count) * target.sampleRate / converter.inputFormat.sampleRate) + 32
-            guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { continue }
-            let fed = Locked(false)
-            var error: NSError?
-            converter.convert(to: out, error: &error) { _, status in
-                if fed.current { status.pointee = .noDataNow; return nil }
-                fed.update { $0 = true }
-                status.pointee = .haveData
-                return input
+            if count > 0, let converted = convert(count) { append(converted, heardAt: firstHeard) }
+            if flushing {
+                if !pending.isEmpty { onBlock(pending, pendingStart + Double(pending.count) / target.sampleRate) }
+                pending.removeAll()
+                flushed.signal()
             }
-            guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { continue }
-            append(Array(UnsafeBufferPointer(start: data, count: Int(out.frameLength))), heardAt: firstHeard)
         }
     }
 
-    /// Collect converted audio into fixed blocks, each stamped with when its first sample was heard.
+    private func convert(_ count: Int) -> [Float]? {
+        guard let converter,
+              let input = AVAudioPCMBuffer(pcmFormat: converter.inputFormat, frameCapacity: AVAudioFrameCount(count)) else { return nil }
+        input.frameLength = AVAudioFrameCount(count)
+        input.floatChannelData![0].update(from: taken, count: count)
+        let capacity = AVAudioFrameCount(Double(count) * target.sampleRate / converter.inputFormat.sampleRate) + 32
+        guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return nil }
+        let fed = Locked(false)
+        var error: NSError?
+        converter.convert(to: out, error: &error) { _, status in
+            if fed.current { status.pointee = .noDataNow; return nil }
+            fed.update { $0 = true }
+            status.pointee = .haveData
+            return input
+        }
+        guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { return nil }
+        return Array(UnsafeBufferPointer(start: data, count: Int(out.frameLength)))
+    }
+
+    /// Collect converted audio into fixed blocks, each stamped with when its last sample was heard.
     private func append(_ samples: [Float], heardAt: Double) {
         if pending.isEmpty { pendingStart = heardAt }
         pending += samples
@@ -322,10 +383,12 @@ public final class AudioEngine: @unchecked Sendable {
         if settings.sampleRate != sampleRate.current {
             // Captures convert to one rate; a new rate means new captures.
             sampleRate.update { $0 = settings.sampleRate }
-            for (name, capture) in captures.current {
-                capture.stop()
-                captures.update { $0[name] = nil }
-                processing.sync { chunker.removeMic(name) }
+            devices.sync {
+                for (name, capture) in captures.current {
+                    capture.stop()
+                    captures.update { $0[name] = nil }
+                    processing.sync { chunker.removeMic(name) }
+                }
             }
         }
         devices.sync { wanted = Array(NSOrderedSet(array: settings.enabledMics)) as? [String] ?? settings.enabledMics }
@@ -403,6 +466,9 @@ public final class AudioEngine: @unchecked Sendable {
 
     /// End the recording: the rest of the audio, after every block heard before now.
     public func stopRecording() -> FinalChunk {
+        // What the mics heard up to the release, part-blocks included, reaches the audio queue
+        // first; without this the last few tens of milliseconds were cut.
+        devices.sync { for capture in captures.current.values { capture.flush() } }
         let final = processing.sync { () -> FinalChunk in
             onChunk = nil
             onBlock = nil
@@ -419,13 +485,20 @@ public final class AudioEngine: @unchecked Sendable {
 
     public func shutdown() {
         monitor?.cancel()
-        for capture in captures.current.values { capture.stop() }
-        captures.update { $0.removeAll() }
+        devices.sync {
+            for capture in captures.current.values { capture.stop() }
+            captures.update { $0.removeAll() }
+        }
     }
 
     // MARK: - Audio queue
 
     private func feed(_ mic: String, _ block: [Float], _ heard: Double) {
+        // Mics opened on the press have heard nothing before it: an earlier block is the end
+        // of the last dictation, still on its way.
+        if chunker.isRecording, let opened = openedAt, heard - Double(block.count) / Double(sampleRate.current) < opened - 0.01 {
+            return
+        }
         if let opened = openedAt, !heardSinceOpen.contains(mic) {
             heardSinceOpen.insert(mic)
             // The block's stamp is its end; its start is when the microphone began hearing.
