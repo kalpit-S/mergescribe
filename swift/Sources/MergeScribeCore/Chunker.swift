@@ -159,6 +159,11 @@ public struct Chunker: Sendable {
         }
     }
 
+    /// What a mic's chunk holds so far: at the start of a dictation, its pre-roll.
+    public func held(_ mic: String) -> [[Float]] {
+        mics.first { $0.name == mic }?.chunk ?? []
+    }
+
     /// End the dictation: the audio since the last chunk, and whether it holds speech.
     public mutating func stopRecording() -> FinalChunk {
         isRecording = false

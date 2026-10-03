@@ -451,6 +451,10 @@ public final class AudioEngine: @unchecked Sendable {
             self.onChunk = onChunk
             self.onBlock = onBlock
             chunker.startRecording(now: now, preroll: open)
+            // The pre-roll is part of the dictation for whoever follows it block by block too.
+            if let onBlock, let primary = chunker.primaryMic {
+                for block in chunker.held(primary) { onBlock(block) }
+            }
             openedAt = open ? nil : now
             heardSinceOpen = []
             drainMessages()

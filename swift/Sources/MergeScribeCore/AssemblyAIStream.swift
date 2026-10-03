@@ -23,6 +23,8 @@ public final class AssemblyAIStream: @unchecked Sendable {
     private var turns = StreamTurns()
     private var audioEnded = false
     private var endpointSent = false
+    private var finalSinceEndpoint = false   // the service answered the end of turn
+    private var graceOver = false            // or had its chance to
     private var failure: String?
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private let started = DispatchTime.now()
@@ -62,7 +64,9 @@ public final class AssemblyAIStream: @unchecked Sendable {
 
     /// 16 kHz float samples, as the microphones deliver them.
     public func append(_ samples: [Float]) {
-        let data = Self.pcm16(samples)
+        // The service refuses a frame under 50 ms; only the last part-block can be one, and
+        // silence after it changes nothing.
+        let data = Self.frame(samples, sampleRate: sampleRate)
         queue.async { [self] in
             guard failure == nil, !audioEnded else { return }
             if open { send(.data(data)) } else { held.append(data) }
@@ -76,9 +80,9 @@ public final class AssemblyAIStream: @unchecked Sendable {
             endedAt = .now()
             if open { sendEndpoint() }
         }
-        // A dictation with no speech never asks for its transcript: don't leave the session
-        // open (the account allows only a few at once).
-        queue.asyncAfter(deadline: .now() + 15) { [self] in
+        // A dictation with no speech never asks for its transcript (the session asks at once
+        // otherwise): don't hold one of the account's few sessions open.
+        queue.asyncAfter(deadline: .now() + 3) { [self] in
             if waiters.isEmpty { close() }
         }
     }
@@ -130,7 +134,22 @@ public final class AssemblyAIStream: @unchecked Sendable {
 
     // MARK: - On the queue
 
-    private var isSettled: Bool { failure != nil || (endpointSent && turns.isComplete) }
+    /// Done once the release has been answered. The service replies to ForceEndpoint with a
+    /// final turn when speech is pending, and with nothing when the turn had already ended, so:
+    /// a final turn after it settles at once; if every turn with words was final already, a
+    /// short grace for one still on its way; with no words heard yet, wait (the timeout, then
+    /// the batch fallback, cover a stream that never answers). Settling on "no turns yet" once
+    /// lost a whole one-second dictation.
+    private var isSettled: Bool {
+        Self.settled(failed: failure != nil, endpointSent: endpointSent, turns: turns,
+                     finalSinceEndpoint: finalSinceEndpoint, graceOver: graceOver)
+    }
+
+    static func settled(failed: Bool, endpointSent: Bool, turns: StreamTurns, finalSinceEndpoint: Bool, graceOver: Bool) -> Bool {
+        if failed { return true }
+        guard endpointSent, turns.hasWords, turns.isComplete else { return false }
+        return finalSinceEndpoint || graceOver
+    }
 
     private func settle() {
         guard isSettled else { return }
@@ -144,8 +163,15 @@ public final class AssemblyAIStream: @unchecked Sendable {
         guard !endpointSent else { return }
         endpointSent = true
         send(.string(#"{"type":"ForceEndpoint"}"#))
-        settle()   // the last turn may have ended before the audio did
+        queue.asyncAfter(deadline: .now() + Self.grace) { [self] in
+            graceOver = true
+            settle()
+        }
     }
+
+    /// How long a turn that had already ended gets for another to appear: the service's final
+    /// for pending speech came 0.15 s (median) to 0.38 s (worst) after the audio.
+    static let grace = 0.3
 
     private func send(_ message: URLSessionWebSocketTask.Message) {
         task?.send(message) { [weak self] error in
@@ -189,6 +215,9 @@ public final class AssemblyAIStream: @unchecked Sendable {
             if audioEnded { sendEndpoint() }
         case "Turn":
             turns.update(json)
+            if endpointSent, json["end_of_turn"]?.bool == true, json["turn_is_formatted"]?.bool == true {
+                finalSinceEndpoint = true
+            }
             settle()
         case "Termination":
             break
@@ -205,6 +234,12 @@ public final class AssemblyAIStream: @unchecked Sendable {
         self.task = nil
         if open { task.send(.string(#"{"type":"Terminate"}"#)) { _ in } }
         task.cancel(with: .normalClosure, reason: nil)
+    }
+
+    /// A frame of at least 50 ms, padded with silence.
+    static func frame(_ samples: [Float], sampleRate: Int) -> Data {
+        let minimum = sampleRate / 20
+        return pcm16(samples.count < minimum ? samples + [Float](repeating: 0, count: minimum - samples.count) : samples)
     }
 
     /// 16-bit little-endian PCM, as the API takes it.
@@ -232,6 +267,8 @@ struct StreamTurns: Sendable {
     /// Every turn with words is final. A turn that ended opens an empty next one, which never
     /// becomes final, so empty turns don't count; with no words at all there is nothing to wait for.
     var isComplete: Bool { turns.values.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }.allSatisfy(\.final) }
+
+    var hasWords: Bool { turns.values.contains { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty } }
 
     var text: String {
         turns.sorted { $0.key < $1.key }.map(\.value.text)

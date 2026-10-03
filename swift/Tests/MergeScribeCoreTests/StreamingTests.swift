@@ -29,6 +29,34 @@ import Testing
         #expect(!turns.isComplete, "a turn with words isn't final yet")
     }
 
+    @Test func theReleaseIsAnsweredBeforeTheTranscriptCounts() {
+        func settled(_ turns: StreamTurns, final: Bool = false, grace: Bool = false, endpoint: Bool = true) -> Bool {
+            AssemblyAIStream.settled(failed: false, endpointSent: endpoint, turns: turns, finalSinceEndpoint: final, graceOver: grace)
+        }
+        var none = StreamTurns()
+        // A one-second dictation released before any of it came back: wait for the final.
+        #expect(!settled(none, grace: true), "settling here typed nothing for a real dictation")
+        none.update(turn(0, "", endOfTurn: false, formatted: false))
+        #expect(!settled(none, grace: true))
+
+        var ended = StreamTurns()
+        ended.update(turn(0, "Ship it.", endOfTurn: true, formatted: true))
+        #expect(!settled(ended, endpoint: false), "not before the release")
+        #expect(!settled(ended), "a turn already over gets a moment for another")
+        #expect(settled(ended, grace: true))
+        #expect(settled(ended, final: true), "the reply to the release settles at once")
+
+        var more = ended
+        more.update(turn(1, "and then", endOfTurn: false, formatted: false))
+        #expect(!settled(more, grace: true), "speech still coming in")
+        #expect(AssemblyAIStream.settled(failed: true, endpointSent: false, turns: none, finalSinceEndpoint: false, graceOver: false))
+    }
+
+    @Test func framesAreAtLeastFiftyMilliseconds() {
+        #expect(AssemblyAIStream.frame([Float](repeating: 0.1, count: 300), sampleRate: 16000).count == 800 * 2)
+        #expect(AssemblyAIStream.frame([Float](repeating: 0.1, count: 1024), sampleRate: 16000).count == 1024 * 2)
+    }
+
     @Test func audioIsSixteenBitLittleEndianClipped() {
         let data = AssemblyAIStream.pcm16([0, 1, -1, 2, 0.5])
         let values = stride(from: 0, to: data.count, by: 2).map { Int16(littleEndian: data[$0..<$0 + 2].withUnsafeBytes { $0.loadUnaligned(as: Int16.self) }) }
