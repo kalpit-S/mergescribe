@@ -77,7 +77,9 @@ public struct Chunker: Sendable {
             sampleRate = settings.sampleRate
             prerollSeconds = settings.prerollSeconds
             silenceThreshold = settings.silenceThreshold
-            chunkOnSilence = settings.chunkOnSilence
+            // A streamed dictation is transcribed as it goes: cutting it into chunks would
+            // only send the batch fallback pieces it doesn't need.
+            chunkOnSilence = settings.chunkOnSilence && !settings.streaming
             adaptiveThreshold = settings.adaptiveThresholdEnabled
             speechHeadroomDb = settings.speechHeadroomDb
             speechHysteresisDb = settings.speechHysteresisDb

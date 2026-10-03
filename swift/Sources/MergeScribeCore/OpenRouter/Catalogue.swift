@@ -13,6 +13,7 @@ public enum Catalogue {
 
     /// Fast enough for dictation: first token within about 1.5s.
     public static let correctionModels: [(id: String, name: String)] = [
+        ("deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash"),
         ("openai/gpt-6-luna", "GPT-6 Luna"),
         ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5"),
         ("moonshotai/kimi-k3", "Kimi K3"),

@@ -36,6 +36,7 @@ swift run --scratch-path .build-clt MergeScribe replay ~/.mergescribe/training/<
 swift run --scratch-path .build-clt MergeScribe stats                       # the Stats page's numbers
 swift run --scratch-path .build-clt MergeScribe devices                     # input devices Core Audio sees
 build/MergeScribe.app/Contents/MacOS/MergeScribe mic-test [seconds] [times]   # open and close the enabled mics as dictations do
+swift run --scratch-path .build-clt MergeScribe stream-test <audio.wav>     # a saved recording streamed to AssemblyAI at speaking pace
 swift run --scratch-path .build-clt MergeScribe hud-preview [--loop]        # the HUD playing a scripted dictation
 swift run --scratch-path .build-clt MergeScribe hud-frames <dir>            # the same, rendered to PNGs
 swift run --scratch-path .build-clt MergeScribe settings-preview [Stats]    # the Settings window on its own, at a section
@@ -70,6 +71,12 @@ decisions, chunking of scripted audio) and the Swift tests assert the same answe
   connected (16 kHz in its call mode) it failed to start or ran silent, and it could open the
   headset's mic. The mics open on the key press (about 35-50 ms until audio arrives) unless
   "Keep the microphone on" is set.
+- **Streaming (optional).** With an AssemblyAI key and "Stream while you talk" on, the dictation
+  streams to Universal 3.6 Pro as it is spoken and isn't cut into chunks; the transcript is final
+  about 150 ms after the release (vs about 0.84 s waiting on the batch recognizers). The session
+  opens on the key press (~0.35 s); audio heard before it opens is held and sent then. A stream that
+  fails or stalls past 2 s falls back to batch Universal on the whole recording. On 114 of the
+  speaker's recordings the typed text matched the batch ensemble's.
 - **Recognizers per recording.** Each dictation builds its recognizer set from the settings of
   the moment, so a change in Settings never swaps them under a session that is finishing.
 - **Typing from a private event source**, so a modifier you are holding can't turn text into

@@ -19,6 +19,7 @@ final class App: NSObject, NSApplicationDelegate {
     var hotkey: Hotkey?
     var current: Session?
     var live: LiveWords?
+    var stream: AssemblyAIStream?
     /// The latest dictations, newest first: for the menu, and for editing the last one.
     var recent: [(text: String, app: String, window: String, at: Date, inPlace: Bool)] = []
     var recentMenu: NSMenu!
@@ -157,7 +158,19 @@ final class App: NSObject, NSApplicationDelegate {
         input.doubleTapThreshold = settings.doubleTapThreshold
         input.toggleTimeout = Double(settings.toggleModeTimeout)
         let mics = audio.apply(settings)
-        let recognizers = Self.recognizers(for: settings, http: http, vocabulary: vocabulary)
+        var recognizers = Self.recognizers(for: settings, http: http, vocabulary: vocabulary)
+        var stream: AssemblyAIStream?
+        if settings.streaming {
+            let learn = settings.learnVocabulary, vocabulary = vocabulary
+            let opened = AssemblyAIStream(key: settings.assemblyaiApiKey, model: settings.streamingModel,
+                                          sampleRate: settings.sampleRate, keyterms: learn ? vocabulary.knownTerms() : [])
+            // If the stream fails or stalls, batch Universal transcribes the whole recording.
+            let fallback = settings.openrouterApiKey.isEmpty ? nil : OpenRouterRecognizer(
+                model: "assemblyai/universal-3-5-pro", key: settings.openrouterApiKey, client: TranscriptionClient(http: http),
+                sampleRate: settings.sampleRate, keyterms: { learn ? vocabulary.knownTerms() : [] })
+            recognizers.insert(StreamingRecognizer(stream: opened, fallback: fallback), at: 0)
+            stream = opened
+        }
         guard !mics.isEmpty else { return showError("No active microphones") }
         guard !recognizers.isEmpty else {
             return showError(settings.openrouterApiKey.isEmpty
@@ -178,17 +191,24 @@ final class App: NSObject, NSApplicationDelegate {
         }
         guard let session = manager.startSession(settings: settings, recognizers: recognizers) else { return }
         current = session
+        // Connecting takes ~0.4 s; what the mics hear meanwhile is held and sent when it opens.
+        stream?.start()
+        self.stream = stream
         // Capture first, then let the session gather context: the press-to-record gap is
         // what the user feels.
-        var onBlock: (([Float]) -> Void)?
+        var words: LiveWords?
         if settings.liveWords && settings.hudEnabled {
-            let words = LiveWords()
-            live = words
+            let started = LiveWords()
             let hud = hud!, sid = session.id.uuidString.lowercased()
-            words.start(sampleRate: settings.sampleRate, vocabulary: settings.learnVocabulary ? vocabulary.knownTerms() : []) { text in
+            started.start(sampleRate: settings.sampleRate, vocabulary: settings.learnVocabulary ? vocabulary.knownTerms() : []) { text in
                 hud.liveText(session: sid, text: text)
             }
-            onBlock = { words.append($0) }
+            words = started
+        }
+        live = words
+        let onBlock: (([Float]) -> Void)? = words == nil && stream == nil ? nil : { block in
+            words?.append(block)
+            stream?.append(block)
         }
         audio.startRecording(onChunk: { session.chunkReady($0) }, onBlock: onBlock)
         setStatus(.recording)
@@ -200,6 +220,8 @@ final class App: NSObject, NSApplicationDelegate {
     func stopRecording() {
         guard let session = current else { return }
         let final = audio.stopRecording()
+        stream?.endOfAudio()      // after every block heard before the release
+        stream = nil
         live?.stop()
         live = nil
         ducker.restore()

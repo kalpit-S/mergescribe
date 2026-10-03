@@ -71,6 +71,33 @@ case "devices":
         print("\(device.name)  [\(device.inputChannels) ch, id \(device.id)]")
     }
 
+case "stream-test":
+    // A saved recording streamed to AssemblyAI at the pace it was spoken, as a dictation would be.
+    guard arguments.count > 1, let data = try? Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+          let (samples, rate) = WAV.decode(data), rate == 16000 else { print("usage: MergeScribe stream-test <16 kHz audio.wav>"); exit(2) }
+    let settings = Settings.load(paths: AppPaths(), log: { print($0) })
+    guard !settings.assemblyaiApiKey.isEmpty else { print("No ASSEMBLYAI_API_KEY in ~/.mergescribe/.env"); exit(1) }
+    let stream = AssemblyAIStream(key: settings.assemblyaiApiKey, model: settings.streamingModel, sampleRate: rate,
+                                  keyterms: VocabularyStore().knownTerms())
+    let semaphore = DispatchSemaphore(value: 0)
+    Task.detached {     // not the main actor: the main thread waits below
+        stream.start()
+        let block = 1024, started = Date()
+        for (i, from) in stride(from: 0, to: samples.count, by: block).enumerated() {
+            stream.append(Array(samples[from..<min(from + block, samples.count)]))
+            let due = Double((i + 1) * block) / Double(rate)
+            let wait = due - Date().timeIntervalSince(started)
+            if wait > 0 { try? await Task.sleep(for: .milliseconds(Int(wait * 1000))) }
+        }
+        stream.endOfAudio()
+        let text = await stream.transcript(timeout: 3)
+        let timing = stream.timing
+        print("opened \(timing.connectMs ?? -1) ms after the start; final \(timing.finalMs ?? -1) ms after the audio ended")
+        print(text ?? "(no transcript)")
+        semaphore.signal()
+    }
+    semaphore.wait()
+
 case "mic-test":
     // The enabled microphones, opened and closed as dictations open and close them.
     let seconds = arguments.count > 1 ? Double(arguments[1]) ?? 3 : 3

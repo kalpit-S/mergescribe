@@ -78,6 +78,7 @@ struct OverviewPane: View {
     var fastestRecognizer: Double? {
         var names = Set(model.settings.openrouterSttModels.map(TranscriptionClient.providerName))
         if model.settings.enabledProviders.contains(AppleProvider.name) { names.insert(AppleProvider.name) }
+        if model.settings.streamingEnabled { names.insert("assemblyai-" + model.settings.streamingModel.replacingOccurrences(of: ".", with: "-")) }
         return model.report?.recognizers.filter { names.contains($0.name) && $0.answers > 0 }.compactMap(\.medianMs).min()
     }
 
@@ -158,6 +159,8 @@ struct TranscriptionPane: View {
     @ObservedObject var model: SettingsModel
     @State private var keyDraft = ""
     @FocusState private var keyFocused: Bool
+    @State private var assemblyDraft = ""
+    @FocusState private var assemblyFocused: Bool
 
     var body: some View {
         Form {
@@ -175,6 +178,24 @@ struct TranscriptionPane: View {
                     }
                 }
             } footer: { Footer("Used for cloud transcription and for correction.") }
+
+            Section {
+                Toggle(isOn: model.bind("assemblyai_streaming", \.streamingEnabled)) {
+                    RowLabel("Stream while you talk", model.assemblyKey.isEmpty
+                             ? "Needs an AssemblyAI key"
+                             : "Universal 3.6 Pro hears you as you speak; the text is ready about 0.15 s after you stop")
+                }
+                .disabled(model.assemblyKey.isEmpty)
+                LabeledContent {
+                    SecureField("AssemblyAI key", text: $assemblyDraft, prompt: Text("AssemblyAI key")).labelsHidden().frame(width: 260)
+                        .focused($assemblyFocused)
+                        .onSubmit { model.commitAssemblyKey(assemblyDraft) }
+                        .onChange(of: assemblyFocused) { _, now in if !now { model.commitAssemblyKey(assemblyDraft) } }
+                } label: { RowLabel("AssemblyAI key", "For streaming only") }
+            } header: { Text("Streaming") } footer: {
+                Footer("While streaming, the recognizers below run only if switched on, on the whole recording. "
+                       + "If the stream fails, batch Universal through OpenRouter transcribes it instead.")
+            }
 
             Section {
                 ForEach(model.shownModels, id: \.id) { entry in
@@ -212,9 +233,13 @@ struct TranscriptionPane: View {
         .formStyle(.grouped)
         .onAppear {
             keyDraft = model.apiKey
+            assemblyDraft = model.assemblyKey
             model.loadCatalogue()
         }
-        .onDisappear { model.commitKey(keyDraft) }
+        .onDisappear {
+            model.commitKey(keyDraft)
+            model.commitAssemblyKey(assemblyDraft)
+        }
     }
 
     func line(for provider: String) -> String {

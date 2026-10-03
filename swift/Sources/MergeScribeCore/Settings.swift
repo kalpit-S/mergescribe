@@ -95,8 +95,19 @@ public struct Settings: Sendable, Equatable {
     /// synthetic keystrokes. Web pages and Electron apps always get keystrokes.
     public var insertViaAccessibility = true
 
+    /// Stream the audio to AssemblyAI while you talk (Universal 3.6 Pro, real time) instead of
+    /// sending each stretch of speech to the batch recognizers: the transcript is final about
+    /// 150 ms after you stop. Needs an AssemblyAI key; a stream that fails or stalls falls back
+    /// to batch Universal through OpenRouter.
+    public var streamingEnabled = false
+    public var streamingModel = "universal-3-6-pro"
+
     /// From ~/.mergescribe/.env or the environment; never written to settings.json.
     public var openrouterApiKey = ""
+    public var assemblyaiApiKey = ""
+
+    /// Streaming is on and has a key: the dictation is one stream, not chunks.
+    public var streaming: Bool { streamingEnabled && !assemblyaiApiKey.isEmpty }
 
     public init() {}
 }
@@ -115,9 +126,12 @@ extension Settings {
         var envFiles = [paths.envFile]
         if let currentDirectory { envFiles.insert(currentDirectory.appendingPathComponent(".env"), at: 0) }
         for file in envFiles {
-            if let key = EnvFile.read(file)["OPENROUTER_API_KEY"] { settings.openrouterApiKey = key }
+            let values = EnvFile.read(file)
+            if let key = values["OPENROUTER_API_KEY"] { settings.openrouterApiKey = key }
+            if let key = values["ASSEMBLYAI_API_KEY"] { settings.assemblyaiApiKey = key }
         }
         if let key = environment["OPENROUTER_API_KEY"] { settings.openrouterApiKey = key }
+        if let key = environment["ASSEMBLYAI_API_KEY"] { settings.assemblyaiApiKey = key }
 
         guard let data = try? Data(contentsOf: paths.settingsFile) else { return settings }
         guard let object = try? JSONSerialization.jsonObject(with: data),
@@ -231,6 +245,8 @@ extension Settings {
         .bool("duck_while_recording", \.duckWhileRecording),
         .bool("space_between_dictations", \.spaceBetweenDictations),
         .bool("insert_via_accessibility", \.insertViaAccessibility),
+        .bool("assemblyai_streaming", \.streamingEnabled),
+        .string("assemblyai_streaming_model", \.streamingModel),
     ]
 }
 

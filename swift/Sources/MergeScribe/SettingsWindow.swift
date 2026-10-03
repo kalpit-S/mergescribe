@@ -20,6 +20,7 @@ final class SettingsModel: ObservableObject {
     let http: HTTPClient
     @Published var settings = AppSettings()
     @Published var apiKey = ""
+    @Published var assemblyKey = ""
     @Published var keyStatus: (text: String, ok: Bool?) = ("", nil)
     @Published var listed: [(id: String, name: String)] = []
     @Published var catalogue: [(id: String, name: String)]?
@@ -40,7 +41,9 @@ final class SettingsModel: ObservableObject {
     /// Everything from disk, so a reopened window never shows stale values.
     func reload() {
         settings = AppSettings.load(paths: paths, log: { _ in })
-        apiKey = EnvFile.read(paths.envFile)["OPENROUTER_API_KEY"] ?? ""
+        let env = EnvFile.read(paths.envFile)
+        apiKey = env["OPENROUTER_API_KEY"] ?? ""
+        assemblyKey = env["ASSEMBLYAI_API_KEY"] ?? ""
         let raw = file.load()
         listed = (raw["openrouter_stt_listed"] as? [[Any]] ?? []).compactMap { pair in
             guard pair.count == 2, let id = pair[0] as? String, let name = pair[1] as? String else { return nil }
@@ -90,6 +93,15 @@ final class SettingsModel: ObservableObject {
         settings.openrouterApiKey = key
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
         validateKey()
+    }
+
+    func commitAssemblyKey(_ key: String) {
+        let key = key.trimmingCharacters(in: .whitespaces)
+        guard key != assemblyKey else { return }
+        try? EnvFile.write(["ASSEMBLYAI_API_KEY": key], to: paths.envFile)
+        assemblyKey = key
+        settings.assemblyaiApiKey = key
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
     func validateKey() {
@@ -155,6 +167,7 @@ final class SettingsModel: ObservableObject {
     var activeRecognizers: [String] {
         var names = settings.openrouterSttModels.map { id in shownModels.first { $0.id == id }?.name ?? id }
         if settings.enabledProviders.contains(AppleProvider.name) { names.append("Apple") }
+        if settings.streamingEnabled && !assemblyKey.isEmpty { names.insert("Universal 3.6, streaming", at: 0) }
         return names
     }
 
