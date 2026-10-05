@@ -31,6 +31,8 @@ public final class AssemblyAIStream: @unchecked Sendable {
     private var openedAt: DispatchTime?
     private var endedAt: DispatchTime?
     private var finalAt: DispatchTime?
+    private var samplesSent = 0
+    private var lastMessage: (kind: String, at: DispatchTime)?
 
     public init(key: String, model: String, sampleRate: Int, keyterms: [String], session: URLSession = .shared) {
         name = "assemblyai-" + model.replacingOccurrences(of: ".", with: "-")
@@ -69,6 +71,7 @@ public final class AssemblyAIStream: @unchecked Sendable {
         let data = Self.frame(samples, sampleRate: sampleRate)
         queue.async { [self] in
             guard failure == nil, !audioEnded else { return }
+            samplesSent += data.count / 2
             if open { send(.data(data)) } else { held.append(data) }
         }
     }
@@ -97,7 +100,7 @@ public final class AssemblyAIStream: @unchecked Sendable {
                 waiters.append(done)
                 queue.asyncAfter(deadline: deadline) { [self] in
                     guard !isSettled else { return }
-                    failure = failure ?? "no final transcript within \(timeout)s"
+                    failure = failure ?? "no final transcript within \(timeout)s (\(state))"
                     settle()
                 }
             }
@@ -204,8 +207,23 @@ public final class AssemblyAIStream: @unchecked Sendable {
         }
     }
 
+    /// What the stream had when it gave up, so a stall can be told apart from silence.
+    private var state: String {
+        let ms = { (t: DispatchTime) in Int((Double(DispatchTime.now().uptimeNanoseconds) - Double(t.uptimeNanoseconds)) / 1e6) }
+        let spoken = turns.turns.values.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+        return "opened \(openedAt.map { "\(Int((Double($0.uptimeNanoseconds) - Double(started.uptimeNanoseconds)) / 1e6))ms after the press" } ?? "never"), "
+            + String(format: "%.1fs of audio sent, ", Double(samplesSent) / Double(sampleRate))
+            + "endpoint \(endpointSent ? "sent" : "not sent"), \(turns.turns.count) turns (\(spoken.count) with words, "
+            + "\(spoken.filter(\.final).count) final), last message \(lastMessage.map { "\($0.kind) \(ms($0.at))ms ago" } ?? "none")"
+    }
+
     private func handle(_ text: String) {
-        guard let json = try? JSONDecoder().decode(JSON.self, from: Data(text.utf8)) else { return }
+        guard let json = try? JSONDecoder().decode(JSON.self, from: Data(text.utf8)) else {
+            Log.line("[Stream] Unreadable message: \(text.prefix(200))")
+            return
+        }
+        let kind = json["type"]?.string ?? "?"
+        lastMessage = (kind == "Turn" ? "Turn \(json["turn_order"]?.int ?? -1)\(json["end_of_turn"]?.bool == true ? " end" : "")\(json["turn_is_formatted"]?.bool == true ? " formatted" : "")" : kind, .now())
         switch json["type"]?.string {
         case "Begin":
             open = true
