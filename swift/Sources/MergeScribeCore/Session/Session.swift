@@ -40,6 +40,12 @@ public final class Session: @unchecked Sendable {
     static let continuationSeconds = 8.0
     /// Absolute ceiling on waiting for a chunk's recognizers, whatever the deadline.
     var chunkHardTimeout = 30.0
+    /// Once any recognizer has answered, even with nothing, the rest get at most this long. An
+    /// empty answer is no evidence the others are late (one heard nothing, another may have
+    /// heard words), so it doesn't start the deadline; but with only empty answers there was no
+    /// limit short of the hard one, and a quick tap's silence kept MAI (3 s or more on silence,
+    /// sometimes far longer) holding the session open until the user restarted the app.
+    var quietGrace = 5.0
 
     public let id: UUID
     public let settings: Settings
@@ -202,10 +208,11 @@ public final class Session: @unchecked Sendable {
         var consensus: String?
         var matching = 0
         var deadline: Double?     // seconds after `started`
+        var quietDeadline: Double?
 
         while finished.count < plan.count {
             let elapsed = (clock.now - started).seconds
-            let timeout = deadline.map { $0 - elapsed } ?? (chunkHardTimeout - elapsed)
+            let timeout = (deadline ?? quietDeadline ?? chunkHardTimeout) - elapsed
             guard timeout > 0, let (index, outcome) = await inbox.take(timeout: timeout) else { break }
             finished.insert(index)
             let stream = "\(plan[index].recognizer.name)/\(plan[index].mic)"
@@ -236,6 +243,9 @@ public final class Session: @unchecked Sendable {
                 && results.contains(where: { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
                 let elapsed = (clock.now - started).seconds
                 deadline = min(max(elapsed * (1 + multiplier), minGrace), chunkHardTimeout)
+            }
+            if quietDeadline == nil {
+                quietDeadline = min((clock.now - started).seconds + quietGrace, chunkHardTimeout)
             }
         }
 

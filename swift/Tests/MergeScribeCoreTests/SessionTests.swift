@@ -114,6 +114,18 @@ import Testing
         #expect(s.state.read { $0.chunkResults[0].results.map(\.text) }.contains("ship it friday"))
     }
 
+    @Test func onlyEmptyAnswersDontWaitForTheHardLimit() async {
+        // A quick tap: every recognizer hears nothing and one never answers. That held the
+        // session (and the HUD) until the app was restarted.
+        var rig = Rig()
+        rig.recognizers = [FakeRecognizer("blank"), FakeRecognizer("hung", delay: 20, text: "")]
+        let s = rig.session()
+        s.quietGrace = 0.3
+        let started = Date()
+        await s.transcribe(speech(0.1))
+        #expect(Date().timeIntervalSince(started) < 2)
+    }
+
     @Test func theHardLimitHoldsAfterAFirstAnswer() async {
         var rig = Rig()
         rig.settings.consensusThreshold = 99

@@ -15,7 +15,7 @@ public enum Catalogue {
     public static let correctionModels: [(id: String, name: String)] = [
         ("deepseek/deepseek-v4.1-flash", "DeepSeek V4.1 Flash"),
         ("openai/gpt-6-luna", "GPT-6 Luna"),
-        ("anthropic/claude-haiku-4.5", "Claude Haiku 4.5"),
+        ("anthropic/claude-haiku-5.5", "Claude Haiku 5.5"),
         ("moonshotai/kimi-k3", "Kimi K3"),
         ("google/gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite"),
         ("google/gemini-3.8-flash", "Gemini 3.8 Flash"),

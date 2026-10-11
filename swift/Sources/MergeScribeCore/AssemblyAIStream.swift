@@ -25,6 +25,7 @@ public final class AssemblyAIStream: @unchecked Sendable {
     private var endpointSent = false
     private var finalSinceEndpoint = false   // the service answered the end of turn
     private var graceOver = false            // or had its chance to
+    private var quietOver = false            // no words even after the release had time to land
     private var failure: String?
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private let started = DispatchTime.now()
@@ -145,14 +146,23 @@ public final class AssemblyAIStream: @unchecked Sendable {
     /// lost a whole one-second dictation.
     private var isSettled: Bool {
         Self.settled(failed: failure != nil, endpointSent: endpointSent, turns: turns,
-                     finalSinceEndpoint: finalSinceEndpoint, graceOver: graceOver)
+                     finalSinceEndpoint: finalSinceEndpoint, graceOver: graceOver, quietOver: quietOver)
     }
 
-    static func settled(failed: Bool, endpointSent: Bool, turns: StreamTurns, finalSinceEndpoint: Bool, graceOver: Bool) -> Bool {
+    static func settled(failed: Bool, endpointSent: Bool, turns: StreamTurns, finalSinceEndpoint: Bool, graceOver: Bool,
+                        quietOver: Bool = false) -> Bool {
         if failed { return true }
-        guard endpointSent, turns.hasWords, turns.isComplete else { return false }
+        guard endpointSent else { return false }
+        // Nothing at all from the service well after the release: the speaker said nothing. (Its
+        // final for pending speech lands 0.15-0.4 s after the release; on silence it sends no
+        // turn at all, which used to cost a 2 s wait and a batch request on every quick tap.)
+        if !turns.hasWords { return quietOver }
+        guard turns.isComplete else { return false }
         return finalSinceEndpoint || graceOver
     }
+
+    /// How long after the release no words at all means silence.
+    static let quiet = 0.7
 
     private func settle() {
         guard isSettled else { return }
@@ -168,6 +178,10 @@ public final class AssemblyAIStream: @unchecked Sendable {
         send(.string(#"{"type":"ForceEndpoint"}"#))
         queue.asyncAfter(deadline: .now() + Self.grace) { [self] in
             graceOver = true
+            settle()
+        }
+        queue.asyncAfter(deadline: .now() + Self.quiet) { [self] in
+            quietOver = true
             settle()
         }
     }

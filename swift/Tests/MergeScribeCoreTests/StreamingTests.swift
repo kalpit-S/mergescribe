@@ -36,6 +36,8 @@ import Testing
         var none = StreamTurns()
         // A one-second dictation released before any of it came back: wait for the final.
         #expect(!settled(none, grace: true), "settling here typed nothing for a real dictation")
+        #expect(AssemblyAIStream.settled(failed: false, endpointSent: true, turns: none, finalSinceEndpoint: false,
+                                         graceOver: true, quietOver: true), "but nothing at all well after the release is silence")
         none.update(turn(0, "", endOfTurn: false, formatted: false))
         #expect(!settled(none, grace: true))
 
