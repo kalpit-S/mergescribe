@@ -44,6 +44,10 @@ public struct Settings: Sendable, Equatable {
 
     // Input
     public var triggerKey = "alt_r"
+    /// Opens Settings directly, from anywhere: the way in when the menu bar is too full to
+    /// click the status icon (a notch or camera housing can sit right over it). Off by default,
+    /// since a good choice depends on what else is bound on this Mac.
+    public var settingsShortcut = ""
     public var doubleTapThreshold: Double = 0.45
     public var toggleModeTimeout: Int = 600
 
@@ -220,6 +224,7 @@ extension Settings {
         .double("speech_hysteresis_db", \.speechHysteresisDb),
         .int("noise_floor_percentile", \.noiseFloorPercentile),
         .string("trigger_key", \.triggerKey),
+        .string("settings_shortcut", \.settingsShortcut),
         .double("double_tap_threshold", \.doubleTapThreshold),
         .int("toggle_mode_timeout", \.toggleModeTimeout),
         .strings("enabled_providers", \.enabledProviders),

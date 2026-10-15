@@ -127,6 +127,12 @@ struct RecordingPane: View {
                                                set: { model.bind("double_tap_threshold", \.doubleTapThreshold).wrappedValue = $0 / 1000 }),
                                 range: 150...1000, places: 0)
                 } label: { RowLabel("Double-tap window", "Milliseconds") }
+                LabeledContent {
+                    ShortcutRecorder(key: model.bind("settings_shortcut", \.settingsShortcut),
+                                     avoiding: [model.settings.triggerKey], clearable: true)
+                } label: {
+                    RowLabel("Open Settings", "From anywhere, even when the menu bar icon is hidden behind a notch or camera")
+                }
             } header: { Text("Shortcut") }
 
             Section {

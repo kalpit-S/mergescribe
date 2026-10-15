@@ -119,7 +119,8 @@ final class App: NSObject, NSApplicationDelegate {
 
     func startHotkey() {
         hotkey?.stop()
-        guard let key = Hotkey(trigger: settings.triggerKey, machine: input) else {
+        guard let key = Hotkey(trigger: settings.triggerKey, secondary: settings.settingsShortcut,
+                               onSecondary: { [weak self] in self?.openSettings() }, machine: input) else {
             Log.line("Unknown trigger key \(settings.triggerKey)")
             return
         }
@@ -140,7 +141,7 @@ final class App: NSObject, NSApplicationDelegate {
         hud.setEnabled(settings.hudEnabled)
         hud.setLiveWords(settings.liveWords && settings.hudEnabled)
         textOutput.viaAccessibility.update { $0 = settings.insertViaAccessibility }
-        if settings.triggerKey != before.triggerKey { startHotkey() }
+        if settings.triggerKey != before.triggerKey || settings.settingsShortcut != before.settingsShortcut { startHotkey() }
         if settings.enabledMics != before.enabledMics, current == nil { audio.apply(settings) }
         setStatus(current == nil ? .idle : .recording)
     }

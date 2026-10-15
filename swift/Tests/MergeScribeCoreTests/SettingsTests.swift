@@ -128,6 +128,13 @@ struct TempHome {
         #expect(settings == Settings())
         #expect(settings.openrouterCorrectionModel == "openai/gpt-6-luna")
         #expect(settings.judgeEnabled == false)
+        #expect(settings.settingsShortcut == "", "off until the person picks one: a good choice depends on what else is bound")
+    }
+
+    @Test func theSettingsShortcutIsJustAnotherStringField() {
+        let home = TempHome()
+        home.write("settings.json", #"{"settings_shortcut": "ctrl_l"}"#)
+        #expect(Settings.load(paths: home.paths, environment: [:], currentDirectory: nil).settingsShortcut == "ctrl_l")
     }
 
     @Test func handEditedValuesDoNotTurnIntoNonsense() {

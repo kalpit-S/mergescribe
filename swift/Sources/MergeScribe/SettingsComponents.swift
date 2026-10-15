@@ -213,7 +213,12 @@ struct HUDPreview: View {
 /// Shows the trigger key; click it and press the key you want.
 struct ShortcutRecorder: View {
     @Binding var key: String
+    /// Keys this recorder refuses to accept, e.g. the trigger key, so the two can't collide.
+    var avoiding: Set<String> = []
+    /// Whether leaving this unset is a real option (an "x" to clear it).
+    var clearable = false
     @State private var listening = false
+    @State private var rejected = false
     @State private var monitor: Any?
 
     static let names: [String: String] = [
@@ -223,23 +228,32 @@ struct ShortcutRecorder: View {
     ]
 
     var body: some View {
-        Button {
-            listening ? stopListening() : startListening()
-        } label: {
-            Text(listening ? "Press a key…" : Self.names[key] ?? key)
-                .frame(minWidth: 130)
+        HStack(spacing: 6) {
+            Button {
+                listening ? stopListening() : startListening()
+            } label: {
+                Text(listening ? (rejected ? "Already used — press another" : "Press a key…")
+                     : key.isEmpty ? "None" : Self.names[key] ?? key)
+                    .frame(minWidth: 150)
+            }
+            if clearable && !key.isEmpty && !listening {
+                Button { key = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.plain)
+            }
         }
         .onDisappear(perform: stopListening)
     }
 
     func startListening() {
         listening = true
+        rejected = false
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { event in
             if event.type == .keyDown && event.keyCode == 53 { stopListening(); return nil }   // Esc: never mind
             if let name = Self.names.keys.first(where: { Hotkey.keys[$0]?.code == event.keyCode }) {
                 // Modifiers arrive on press and release; take the press.
                 if event.type == .flagsChanged, let bit = Hotkey.keys[name]?.modifierBit,
                    UInt64(event.modifierFlags.rawValue) & bit == 0 { return nil }
+                guard !avoiding.contains(name) else { rejected = true; return nil }
                 key = name
                 stopListening()
                 return nil
@@ -250,6 +264,7 @@ struct ShortcutRecorder: View {
 
     func stopListening() {
         listening = false
+        rejected = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
     }

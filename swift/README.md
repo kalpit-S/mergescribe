@@ -14,6 +14,8 @@ open swift/build/MergeScribe.app
 Quit the Python app first: both listen for the same trigger key. Opening MergeScribe again while
 it runs (Spotlight, `open`, or the binary from a terminal) opens its Settings instead of a second
 copy, and `MergeScribe settings` does the same: the way in when a full menu bar hides the icon.
+Settings > Recording can also bind a second key that opens Settings directly from anywhere, same
+mechanism as the trigger key; off by default, since a good choice depends on what else is bound.
 
 The build uses the Command Line Tools toolchain (Swift 6.2 and the macOS 26 SDK, which
 SpeechAnalyzer needs), with no third-party dependencies.

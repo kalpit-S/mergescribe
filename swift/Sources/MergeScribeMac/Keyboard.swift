@@ -130,15 +130,25 @@ public final class Hotkey: @unchecked Sendable {
     static let shiftCodes: Set<CGKeyCode> = [56, 60]
 
     public var trigger: Key
+    /// A second, independent key that just fires `onSecondary`, press only (not hold/release):
+    /// opening Settings from anywhere, including when the menu bar icon can't be clicked. nil
+    /// when unset, invalid, or the same key as the trigger (that would make it ambiguous).
+    private var secondary: Key?
+    private var onSecondary: (() -> Void)?
     private let machine: InputStateMachine
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var loop: CFRunLoop?
 
-    public init?(trigger name: String, machine: InputStateMachine) {
+    public init?(trigger name: String, secondary secondaryName: String = "", onSecondary: (() -> Void)? = nil,
+                machine: InputStateMachine) {
         guard let key = Self.keys[name.lowercased()] else { return nil }
         trigger = key
         self.machine = machine
+        if let secondaryKey = Self.keys[secondaryName.lowercased()], secondaryKey != key {
+            secondary = secondaryKey
+            self.onSecondary = onSecondary
+        }
     }
 
     /// Start listening on the main run loop. False without Input Monitoring permission.
@@ -211,9 +221,11 @@ public final class Hotkey: @unchecked Sendable {
             if code == trigger.code, let bit = trigger.modifierBit {
                 if flags & bit != 0 { machine.triggerPressed() } else { machine.triggerReleased() }
             }
+            if let secondary, code == secondary.code, let bit = secondary.modifierBit, flags & bit != 0 { onSecondary?() }
         case .keyDown:
             if code == trigger.code && trigger.modifierBit == nil { machine.triggerPressed() }
             if code == Self.escape { machine.escapePressed() }
+            if let secondary, code == secondary.code, secondary.modifierBit == nil { onSecondary?() }
         case .keyUp:
             if code == trigger.code && trigger.modifierBit == nil { machine.triggerReleased() }
         default:
